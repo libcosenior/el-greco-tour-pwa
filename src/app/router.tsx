@@ -1,8 +1,8 @@
-import { createBrowserRouter } from 'react-router'
-import { PublicHomePage } from '../pages/PublicHomePage'
-import { AdminLoginPage } from '../pages/AdminLoginPage'
-import { AdminDashboardPage } from '../pages/AdminDashboardPage'
-import { NotFoundPage } from '../pages/NotFoundPage'
+import { createBrowserRouter } from 'react-router-dom'
+import PublicHomePage from '../pages/PublicHomePage'
+import AdminLoginPage from '../pages/AdminLoginPage'
+import AdminDashboardPage from '../pages/AdminDashboardPage'
+import NotFoundPage from '../pages/NotFoundPage'
 
 export const router = createBrowserRouter([
   {
