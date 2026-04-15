@@ -163,11 +163,16 @@ export default function PublicHomePage() {
       adminTapTimerRef.current = null
     }, 1500)
   }
-	
-	function handleRefreshTap() {
-		const url = new URL(window.location.href)
-		url.searchParams.set('_refresh', Date.now().toString())
-		window.location.href = url.toString()
+
+  function handleRefreshTap() {
+    const url = new URL(window.location.href)
+    url.searchParams.set('_refresh', Date.now().toString())
+    window.location.href = url.toString()
+  }
+
+  function handleOrderTripClick() {
+    // Zatiaľ iba vizuálne tlačidlo.
+    // Keď budeš chcieť, napojíme ho na formulár / telefón / e-mail / WhatsApp.
   }
 
   useEffect(() => {
@@ -249,21 +254,21 @@ export default function PublicHomePage() {
               <div style={cardGlowStyle} />
 
               <div style={cardHeaderStyle}>
-								<div style={tripHeaderBoxStyle}>
-									<div style={topMiniLabelStyle}>ZÁJAZD</div>
-									<div style={tripCodeStyle}>{item.trip_code}</div>
-								</div>
+                <div style={tripHeaderBoxStyle}>
+                  <div style={topMiniLabelStyle}>ZÁJAZD</div>
+                  <div style={tripCodeStyle}>{item.trip_code}</div>
+                </div>
 
-								<div style={datePanelStyle}>
-									<div style={topMiniLabelStyle}>TERMÍN</div>
-									<div style={datePanelDateStyle}>
-										{formatDate(item.start_date)} – {formatDate(item.end_date)}
-									</div>
-									<div style={datePanelMetaStyle}>
-										{item.days_count} dní / {item.nights_count} nocí
-									</div>
-								</div>
-							</div>
+                <div style={datePanelStyle}>
+                  <div style={topMiniLabelStyle}>TERMÍN</div>
+                  <div style={datePanelDateStyle}>
+                    {formatDate(item.start_date)} – {formatDate(item.end_date)}
+                  </div>
+                  <div style={datePanelMetaStyle}>
+                    {item.days_count} dní / {item.nights_count} nocí
+                  </div>
+                </div>
+              </div>
 
               <div style={sectionStyle}>
                 <div style={sectionHeadingStyle}>Voľné apartmány</div>
@@ -345,6 +350,14 @@ export default function PublicHomePage() {
 
         {content}
       </div>
+
+      <div style={fixedOrderBarStyle}>
+        <div style={fixedOrderBarInnerStyle}>
+          <button type="button" style={fixedOrderButtonStyle} onClick={handleOrderTripClick}>
+            OBJEDNAŤ ZÁJAZD
+          </button>
+        </div>
+      </div>
     </main>
   )
 }
@@ -385,7 +398,7 @@ const containerStyle: CSSProperties = {
   width: '100%',
   maxWidth: 980,
   margin: '0 auto',
-  padding: '18px 14px 32px',
+  padding: '18px 14px 132px',
   boxSizing: 'border-box',
 }
 
@@ -661,4 +674,40 @@ const noteStyle: CSSProperties = {
   color: '#9a3412',
   fontSize: 14,
   lineHeight: 1.45,
+}
+
+const fixedOrderBarStyle: CSSProperties = {
+  position: 'fixed',
+  left: 0,
+  right: 0,
+  bottom: 0,
+  zIndex: 50,
+  padding: '12px 14px calc(12px + env(safe-area-inset-bottom))',
+  background: 'linear-gradient(180deg, rgba(246,248,251,0) 0%, rgba(246,248,251,0.9) 32%, rgba(246,248,251,1) 100%)',
+  pointerEvents: 'none',
+  boxSizing: 'border-box',
+}
+
+const fixedOrderBarInnerStyle: CSSProperties = {
+  width: '100%',
+  maxWidth: 980,
+  margin: '0 auto',
+  pointerEvents: 'auto',
+}
+
+const fixedOrderButtonStyle: CSSProperties = {
+  width: '100%',
+  minHeight: 60,
+  border: 'none',
+  borderRadius: 22,
+  padding: '16px 20px',
+  background: 'linear-gradient(135deg, #0f766e 0%, #14b8a6 55%, #2dd4bf 100%)',
+  color: '#ffffff',
+  fontSize: 17,
+  fontWeight: 900,
+  letterSpacing: 0.6,
+  textTransform: 'uppercase',
+  boxShadow: '0 16px 34px rgba(15, 118, 110, 0.28)',
+  cursor: 'pointer',
+  WebkitTapHighlightColor: 'transparent',
 }
