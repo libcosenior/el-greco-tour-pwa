@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { CSSProperties, FormEvent } from 'react'
+type ThemeStyleVars = CSSProperties & Record<`--${string}`, string>
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { BOARDING_STOPS } from '../features/order/orderConstants'
@@ -260,47 +261,47 @@ export default function OrderPage() {
     return departures.find((item) => item.id === form.departureId) ?? null
   }, [departures, form.departureId])
 
-  const themeVars: CSSProperties = {
-    '--page-bg': isDarkMode
-      ? 'linear-gradient(180deg, #020617 0%, #0f172a 24%, #111827 100%)'
-      : 'linear-gradient(180deg, #e8f4ff 0%, #f4f8fc 24%, #f6f8fb 100%)',
-    '--text-main': isDarkMode ? '#e5eef7' : '#0f172a',
-    '--text-secondary': isDarkMode ? '#cbd5e1' : '#475569',
-    '--text-muted': isDarkMode ? '#94a3b8' : '#64748b',
-    '--text-label': isDarkMode ? '#dbe5f0' : '#334155',
-    '--card-bg': isDarkMode ? 'rgba(15,23,42,0.96)' : 'rgba(255,255,255,0.96)',
-    '--card-border': isDarkMode ? 'rgba(71,85,105,0.72)' : 'rgba(226,232,240,0.9)',
-    '--card-shadow': isDarkMode
-      ? '0 18px 50px rgba(0, 0, 0, 0.34)'
-      : '0 18px 50px rgba(15, 23, 42, 0.08)',
-    '--section-bg': isDarkMode ? '#111827' : '#f8fafc',
-    '--section-border': isDarkMode ? '#334155' : '#e2e8f0',
-    '--state-bg': isDarkMode ? '#111827' : '#f8fafc',
-    '--state-border': isDarkMode ? '#334155' : '#e2e8f0',
-    '--input-bg': isDarkMode ? '#0b1220' : '#ffffff',
-    '--input-border': isDarkMode ? '#475569' : '#cbd5e1',
-    '--input-text': isDarkMode ? '#f8fafc' : '#0f172a',
-    '--input-placeholder': isDarkMode ? '#94a3b8' : '#64748b',
-    '--hint-bg': isDarkMode ? '#082f49' : '#ecfeff',
-    '--hint-border': isDarkMode ? '#155e75' : '#a5f3fc',
-    '--hint-text': isDarkMode ? '#bae6fd' : '#155e75',
-    '--choice-bg': isDarkMode ? '#0b1220' : '#ffffff',
-    '--choice-border': isDarkMode ? '#475569' : '#cbd5e1',
-    '--selected-bg': isDarkMode ? '#042f2e' : '#f0fdfa',
-    '--selected-border': '#14b8a6',
-    '--selected-shadow': isDarkMode
-      ? '0 0 0 2px rgba(45,212,191,0.16)'
-      : '0 0 0 2px rgba(20,184,166,0.12)',
-    '--accent': '#0f766e',
-    '--danger-bg': isDarkMode ? '#3f1d1d' : '#fef2f2',
-    '--danger-border': isDarkMode ? '#7f1d1d' : '#fecaca',
-    '--danger-text': isDarkMode ? '#fca5a5' : '#b91c1c',
-    '--secondary-button-bg': isDarkMode ? '#111827' : '#ffffff',
-    '--secondary-button-border': isDarkMode ? '#475569' : '#cbd5e1',
-    '--primary-shadow': isDarkMode
-      ? '0 16px 34px rgba(20, 184, 166, 0.18)'
-      : '0 16px 34px rgba(15, 118, 110, 0.22)',
-  }
+  const themeVars: ThemeStyleVars = {
+  '--page-bg': isDarkMode
+    ? 'linear-gradient(180deg, #020617 0%, #0f172a 24%, #111827 100%)'
+    : 'linear-gradient(180deg, #e8f4ff 0%, #f4f8fc 24%, #f6f8fb 100%)',
+  '--text-main': isDarkMode ? '#e5eef7' : '#0f172a',
+  '--text-secondary': isDarkMode ? '#cbd5e1' : '#475569',
+  '--text-muted': isDarkMode ? '#94a3b8' : '#64748b',
+  '--text-label': isDarkMode ? '#dbe5f0' : '#334155',
+  '--card-bg': isDarkMode ? 'rgba(15,23,42,0.96)' : 'rgba(255,255,255,0.96)',
+  '--card-border': isDarkMode ? 'rgba(71,85,105,0.72)' : 'rgba(226,232,240,0.9)',
+  '--card-shadow': isDarkMode
+    ? '0 18px 50px rgba(0, 0, 0, 0.34)'
+    : '0 18px 50px rgba(15, 23, 42, 0.08)',
+  '--section-bg': isDarkMode ? '#111827' : '#f8fafc',
+  '--section-border': isDarkMode ? '#334155' : '#e2e8f0',
+  '--state-bg': isDarkMode ? '#111827' : '#f8fafc',
+  '--state-border': isDarkMode ? '#334155' : '#e2e8f0',
+  '--input-bg': isDarkMode ? '#0b1220' : '#ffffff',
+  '--input-border': isDarkMode ? '#475569' : '#cbd5e1',
+  '--input-text': isDarkMode ? '#f8fafc' : '#0f172a',
+  '--input-placeholder': isDarkMode ? '#94a3b8' : '#64748b',
+  '--hint-bg': isDarkMode ? '#082f49' : '#ecfeff',
+  '--hint-border': isDarkMode ? '#155e75' : '#a5f3fc',
+  '--hint-text': isDarkMode ? '#bae6fd' : '#155e75',
+  '--choice-bg': isDarkMode ? '#0b1220' : '#ffffff',
+  '--choice-border': isDarkMode ? '#475569' : '#cbd5e1',
+  '--selected-bg': isDarkMode ? '#042f2e' : '#f0fdfa',
+  '--selected-border': '#14b8a6',
+  '--selected-shadow': isDarkMode
+    ? '0 0 0 2px rgba(45,212,191,0.16)'
+    : '0 0 0 2px rgba(20,184,166,0.12)',
+  '--accent': '#0f766e',
+  '--danger-bg': isDarkMode ? '#3f1d1d' : '#fef2f2',
+  '--danger-border': isDarkMode ? '#7f1d1d' : '#fecaca',
+  '--danger-text': isDarkMode ? '#fca5a5' : '#b91c1c',
+  '--secondary-button-bg': isDarkMode ? '#111827' : '#ffffff',
+  '--secondary-button-border': isDarkMode ? '#475569' : '#cbd5e1',
+  '--primary-shadow': isDarkMode
+    ? '0 16px 34px rgba(20, 184, 166, 0.18)'
+    : '0 16px 34px rgba(15, 118, 110, 0.22)',
+}
 
   return (
     <main
