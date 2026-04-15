@@ -249,18 +249,21 @@ export default function PublicHomePage() {
               <div style={cardGlowStyle} />
 
               <div style={cardHeaderStyle}>
-                <div style={tripCodeBadgeStyle}>{item.trip_code}</div>
+								<div style={tripHeaderBoxStyle}>
+									<div style={topMiniLabelStyle}>ZÁJAZD</div>
+									<div style={tripCodeStyle}>{item.trip_code}</div>
+								</div>
 
-                <div style={datePanelStyle}>
-                  <div style={datePanelTopStyle}>Termín zájazdu</div>
-                  <div style={datePanelDateStyle}>
-                    {formatDate(item.start_date)} – {formatDate(item.end_date)}
-                  </div>
-                  <div style={datePanelMetaStyle}>
-                    {item.days_count} dní / {item.nights_count} nocí
-                  </div>
-                </div>
-              </div>
+								<div style={datePanelStyle}>
+									<div style={topMiniLabelStyle}>TERMÍN</div>
+									<div style={datePanelDateStyle}>
+										{formatDate(item.start_date)} – {formatDate(item.end_date)}
+									</div>
+									<div style={datePanelMetaStyle}>
+										{item.days_count} dní / {item.nights_count} nocí
+									</div>
+								</div>
+							</div>
 
               <div style={sectionStyle}>
                 <div style={sectionHeadingStyle}>Voľné apartmány</div>
@@ -543,31 +546,36 @@ const cardGlowStyle: CSSProperties = {
 
 const cardHeaderStyle: CSSProperties = {
   display: 'grid',
-  gap: 12,
+  gap: 14,
 }
 
-const tripCodeBadgeStyle: CSSProperties = {
-  alignSelf: 'center',
-  justifySelf: 'center',
-  display: 'inline-flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  minHeight: 34,
-  padding: '0 14px',
-  borderRadius: 999,
-  background: '#e0f2fe',
-  color: '#0c4a6e',
-  fontSize: 14,
+const tripHeaderBoxStyle: CSSProperties = {
+  display: 'grid',
+  gap: 6,
+  justifyItems: 'center',
+}
+
+const topMiniLabelStyle: CSSProperties = {
+  fontSize: 12,
   fontWeight: 900,
-  letterSpacing: 0.3,
-  border: '1px solid #bae6fd',
+  letterSpacing: 1,
+  color: '#64748b',
+  textTransform: 'uppercase',
+}
+
+const tripCodeStyle: CSSProperties = {
+  fontSize: 30,
+  lineHeight: 1,
+  fontWeight: 900,
+  color: '#0f172a',
+  textAlign: 'center',
 }
 
 const datePanelStyle: CSSProperties = {
   display: 'grid',
   gap: 6,
-  padding: 16,
-  borderRadius: 20,
+  padding: 18,
+  borderRadius: 22,
   background: 'linear-gradient(180deg, rgba(240,249,255,0.95) 0%, rgba(255,255,255,0.92) 100%)',
   border: '1px solid #dbeafe',
   boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.75)',
@@ -583,16 +591,16 @@ const datePanelTopStyle: CSSProperties = {
 }
 
 const datePanelDateStyle: CSSProperties = {
-  fontSize: 25,
-  lineHeight: 1.2,
+  fontSize: 28,
+  lineHeight: 1.15,
   fontWeight: 900,
   color: '#0f172a',
 }
 
 const datePanelMetaStyle: CSSProperties = {
-  fontSize: 19,
-  fontWeight: 800,
-  color: '#334155',
+  fontSize: 18,
+  fontWeight: 700,
+  color: '#475569',
 }
 
 const sectionStyle: CSSProperties = {
