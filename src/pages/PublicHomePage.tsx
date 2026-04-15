@@ -163,6 +163,10 @@ export default function PublicHomePage() {
       adminTapTimerRef.current = null
     }, 1500)
   }
+	
+	function handleRefreshTap() {
+  window.location.reload()
+}
 
   useEffect(() => {
     let alive = true
@@ -304,7 +308,7 @@ export default function PublicHomePage() {
         <header style={heroWrapStyle}>
           <section style={heroCardStyle}>
             <div style={heroTopRowStyle}>
-              <span style={heroTagStyle}>Letná ponuka</span>
+              <span style={refreshHeroTagStyle} onClick={handleRefreshTap}>Aktualizovať</span>
               <span style={secretHeroTagStyle} onClick={handleAdminSecretTap}>
                 CK EL GRECO TOUR
               </span>
@@ -419,6 +423,24 @@ const heroTagStyle: CSSProperties = {
 }
 
 const secretHeroTagStyle: CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  minHeight: 30,
+  padding: '0 12px',
+  borderRadius: 999,
+  fontSize: 12,
+  fontWeight: 800,
+  letterSpacing: 0.2,
+  color: '#0f172a',
+  background: 'rgba(255,255,255,0.82)',
+  border: '1px solid rgba(148,163,184,0.25)',
+  cursor: 'pointer',
+  userSelect: 'none',
+  WebkitTapHighlightColor: 'transparent',
+}
+
+const refreshHeroTagStyle: CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
   justifyContent: 'center',
