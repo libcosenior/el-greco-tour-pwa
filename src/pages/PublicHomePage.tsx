@@ -165,8 +165,10 @@ export default function PublicHomePage() {
   }
 	
 	function handleRefreshTap() {
-  window.location.reload()
-}
+		const url = new URL(window.location.href)
+		url.searchParams.set('_refresh', Date.now().toString())
+		window.location.href = url.toString()
+  }
 
   useEffect(() => {
     let alive = true
