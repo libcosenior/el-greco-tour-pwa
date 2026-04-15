@@ -19,11 +19,16 @@ function formatDate(dateIso: string): string {
   return `${day}.${month}.${year}`
 }
 
-function formatBirthDate(dateIso: string): string {
-  if (!dateIso) return ''
-  const parts = dateIso.split('-')
+function formatBirthDate(value: string): string {
+  if (!value) return ''
 
-  if (parts.length !== 3) return dateIso
+  if (/^\d{2}\.\d{2}\.\d{4}$/.test(value)) {
+    return value
+  }
+
+  const parts = value.split('-')
+
+  if (parts.length !== 3) return value
 
   const [year, month, day] = parts
   return `${day}.${month}.${year}`

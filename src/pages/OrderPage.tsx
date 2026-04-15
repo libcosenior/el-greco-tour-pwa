@@ -65,6 +65,14 @@ function clampChildGroups(totalChildren: number, age0to6: number, age7to15: numb
   }
 }
 
+function formatBirthDateInput(value: string): string {
+  const digits = value.replace(/\D/g, '').slice(0, 8)
+
+  if (digits.length <= 2) return digits
+  if (digits.length <= 4) return `${digits.slice(0, 2)}.${digits.slice(2)}`
+  return `${digits.slice(0, 2)}.${digits.slice(2, 4)}.${digits.slice(4)}`
+}
+
 export default function OrderPage() {
   const navigate = useNavigate()
 
@@ -180,9 +188,13 @@ export default function OrderPage() {
       return 'Vyplň titul, meno a priezvisko.'
     }
 
-    if (!form.birthDate) {
-      return 'Vyplň dátum narodenia.'
-    }
+    if (!form.birthDate.trim()) {
+			return 'Vyplň dátum narodenia.'
+		}
+
+		if (!/^\d{2}\.\d{2}\.\d{4}$/.test(form.birthDate.trim())) {
+			return 'Dátum narodenia zadaj vo formáte DD.MM.RRRR.'
+		}
 
     if (!form.permanentResidence.trim()) {
       return 'Vyplň trvalý pobyt.'
@@ -381,17 +393,20 @@ export default function OrderPage() {
                 </label>
 
                 <label style={fieldWrapStyle}>
-                  <span style={fieldLabelStyle}>
-                    Dátum narodenia <span style={requiredMarkStyle}>*</span>
-                  </span>
-                  <input
-                    type="date"
-                    style={inputStyle}
-                    value={form.birthDate}
-                    onChange={(event) => updateField('birthDate', event.target.value)}
-                    required
-                  />
-                </label>
+									<span style={fieldLabelStyle}>
+										Dátum narodenia <span style={requiredMarkStyle}>*</span>
+									</span>
+									<input
+										type="text"
+										inputMode="numeric"
+										style={inputStyle}
+										value={form.birthDate}
+										onChange={(event) => updateField('birthDate', formatBirthDateInput(event.target.value))}
+										placeholder="DD.MM.RRRR"
+										maxLength={10}
+										required
+									/>
+								</label>
 
                 <label style={fieldWrapStyle}>
                   <span style={fieldLabelStyle}>
