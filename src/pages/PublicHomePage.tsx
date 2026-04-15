@@ -467,6 +467,11 @@ const titleStyle: CSSProperties = {
   lineHeight: 1.1,
   fontWeight: 900,
   letterSpacing: 0.2,
+  color: '#0f172a',
+  opacity: 1,
+  position: 'relative',
+  zIndex: 1,
+  textShadow: '0 1px 0 rgba(255,255,255,0.35)',
 }
 
 const topInfoPrimaryStyle: CSSProperties = {
