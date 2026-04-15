@@ -427,18 +427,35 @@ export default function OrderPage() {
                 </label>
 
                 <label style={fieldWrapStyle}>
-                  <span style={fieldLabelStyle}>
-                    Mobil <span style={requiredMarkStyle}>*</span>
-                  </span>
-                  <input
-                    style={inputStyle}
-                    inputMode="tel"
-                    value={form.mobile}
-                    onChange={(event) => updateField('mobile', event.target.value)}
-                    placeholder="+421..."
-                    required
-                  />
-                </label>
+								<span style={fieldLabelStyle}>
+									Mobil <span style={requiredMarkStyle}>*</span>
+								</span>
+								<input
+									style={inputStyle}
+									inputMode="tel"
+									value={form.mobile}
+									onChange={(event) => updateField('mobile', event.target.value)}
+									placeholder="+421..."
+									required
+								/>
+							</label>
+
+							<label style={fieldWrapStyle}>
+								<span style={fieldLabelStyle}>
+									Email <span style={requiredMarkStyle}>*</span>
+								</span>
+								<input
+									type="email"
+									inputMode="email"
+									autoCapitalize="none"
+									autoCorrect="off"
+									style={inputStyle}
+									value={form.email}
+									onChange={(event) => updateField('email', event.target.value)}
+									placeholder="napr. meno@email.sk"
+									required
+								/>
+							</label>
               </section>
 
               <section style={sectionStyle}>
