@@ -582,14 +582,6 @@ const datePanelStyle: CSSProperties = {
   textAlign: 'center',
 }
 
-const datePanelTopStyle: CSSProperties = {
-  fontSize: 13,
-  fontWeight: 800,
-  color: '#64748b',
-  textTransform: 'uppercase',
-  letterSpacing: 0.4,
-}
-
 const datePanelDateStyle: CSSProperties = {
   fontSize: 28,
   lineHeight: 1.15,
