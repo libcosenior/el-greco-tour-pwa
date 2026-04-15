@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
-import { Link } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 
 const FALLBACK_BUS_SURCHARGE_PER_PERSON = 160
@@ -26,15 +26,11 @@ type Departure = {
   note: string | null
 }
 
-type AvailabilityRowProps = {
-  label: string
-  free: number
-  total: number
-}
-
-type PriceRowProps = {
+type ApartmentCompactRowProps = {
   label: string
   price: number
+  free: number
+  total: number
 }
 
 function formatDate(dateIso: string): string {
@@ -57,12 +53,7 @@ function freeCount(total: number, occupied: number): number {
   return Math.max(0, total - occupied)
 }
 
-function percentFree(total: number, occupied: number): number {
-  if (total <= 0) return 0
-  return Math.round((freeCount(total, occupied) / total) * 100)
-}
-
-function availabilityTone(free: number, total: number): CSSProperties {
+function freeBadgeStyle(free: number, total: number): CSSProperties {
   const ratio = total > 0 ? free / total : 0
 
   if (ratio <= 0.2) {
@@ -88,40 +79,31 @@ function availabilityTone(free: number, total: number): CSSProperties {
   }
 }
 
-function AvailabilityRow({ label, free, total }: AvailabilityRowProps) {
-  const progress = total > 0 ? Math.max(8, percentFree(total, total - free)) : 0
-  const pillStyle = availabilityTone(free, total)
-
+function ApartmentCompactRow({ label, price, free, total }: ApartmentCompactRowProps) {
   return (
-    <div style={infoRowCardStyle}>
-      <div style={infoRowTopStyle}>
-        <span style={infoLabelStyle}>{label}</span>
-        <span style={{ ...availabilityPillStyle, ...pillStyle }}>
-          Voľné {free} z {total}
-        </span>
+    <div style={apartmentRowStyle}>
+      <div style={apartmentRowLeftStyle}>
+        <div style={apartmentLabelStyle}>{label}</div>
+        <div style={apartmentPriceStyle}>cena {formatPrice(price)}</div>
       </div>
 
-      <div style={progressTrackStyle}>
-        <div style={{ ...progressFillStyle, width: `${progress}%` }} />
+      <div style={{ ...freeBadgeBaseStyle, ...freeBadgeStyle(free, total) }}>
+        Voľné {free} z {total}
       </div>
-    </div>
-  )
-}
-
-function PriceRow({ label, price }: PriceRowProps) {
-  return (
-    <div style={priceRowStyle}>
-      <span style={priceLabelStyle}>{label}</span>
-      <strong style={priceValueStyle}>{formatPrice(price)}</strong>
     </div>
   )
 }
 
 export default function PublicHomePage() {
+  const navigate = useNavigate()
+
   const [departures, setDepartures] = useState<Departure[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [adminTarget, setAdminTarget] = useState('/admin/login')
+
+  const adminTapCountRef = useRef(0)
+  const adminTapTimerRef = useRef<number | null>(null)
 
   async function loadDepartures() {
     setError(null)
@@ -160,6 +142,26 @@ export default function PublicHomePage() {
 
     setDepartures((data ?? []) as Departure[])
     setLoading(false)
+  }
+
+  function handleAdminSecretTap() {
+    adminTapCountRef.current += 1
+
+    if (adminTapTimerRef.current) {
+      window.clearTimeout(adminTapTimerRef.current)
+    }
+
+    if (adminTapCountRef.current >= 5) {
+      adminTapCountRef.current = 0
+      adminTapTimerRef.current = null
+      navigate(adminTarget)
+      return
+    }
+
+    adminTapTimerRef.current = window.setTimeout(() => {
+      adminTapCountRef.current = 0
+      adminTapTimerRef.current = null
+    }, 1500)
   }
 
   useEffect(() => {
@@ -204,6 +206,10 @@ export default function PublicHomePage() {
       alive = false
       authSubscription.unsubscribe()
       supabase.removeChannel(departuresChannel)
+
+      if (adminTapTimerRef.current) {
+        window.clearTimeout(adminTapTimerRef.current)
+      }
     }
   }, [])
 
@@ -253,32 +259,27 @@ export default function PublicHomePage() {
               <div style={sectionStyle}>
                 <div style={sectionHeadingStyle}>Voľné apartmány</div>
 
-                <div style={sectionGridStyle}>
-                  <AvailabilityRow
-                    label="Dvojlôžkový apartmán"
+                <div style={compactRowsGridStyle}>
+                  <ApartmentCompactRow
+                    label="Dvojlôžkový"
+                    price={item.price_double}
                     free={freeDouble}
                     total={item.double_total}
                   />
-                  <AvailabilityRow
-                    label="Trojlôžkový apartmán"
+
+                  <ApartmentCompactRow
+                    label="Trojlôžkový"
+                    price={item.price_triple}
                     free={freeTriple}
                     total={item.triple_total}
                   />
-                  <AvailabilityRow
-                    label="Štvorlôžkový apartmán"
+
+                  <ApartmentCompactRow
+                    label="Štvorlôžkový"
+                    price={item.price_quad}
                     free={freeQuad}
                     total={item.quad_total}
                   />
-                </div>
-              </div>
-
-              <div style={priceSectionStyle}>
-                <div style={sectionHeadingStyle}>Cena za apartmán</div>
-
-                <div style={priceGridStyle}>
-                  <PriceRow label="Dvojlôžkový" price={item.price_double} />
-                  <PriceRow label="Trojlôžkový" price={item.price_triple} />
-                  <PriceRow label="Štvorlôžkový" price={item.price_quad} />
                 </div>
               </div>
 
@@ -304,7 +305,9 @@ export default function PublicHomePage() {
           <section style={heroCardStyle}>
             <div style={heroTopRowStyle}>
               <span style={heroTagStyle}>Letná ponuka</span>
-              <span style={heroTagStyle}>CK EL GRECO TOUR</span>
+              <span style={secretHeroTagStyle} onClick={handleAdminSecretTap}>
+                CK EL GRECO TOUR
+              </span>
             </div>
 
             <h1 style={titleStyle}>EL GRECO TOUR</h1>
@@ -332,12 +335,6 @@ export default function PublicHomePage() {
         </header>
 
         {content}
-
-        <footer style={footerStyle}>
-          <Link to={adminTarget} style={adminLinkStyle}>
-            Admin
-          </Link>
-        </footer>
       </div>
     </main>
   )
@@ -347,8 +344,7 @@ const pageStyle: CSSProperties = {
   minHeight: '100vh',
   position: 'relative',
   overflow: 'hidden',
-  background:
-    'linear-gradient(180deg, #e8f4ff 0%, #f4f8fc 24%, #f6f8fb 100%)',
+  background: 'linear-gradient(180deg, #e8f4ff 0%, #f4f8fc 24%, #f6f8fb 100%)',
   color: '#0f172a',
 }
 
@@ -393,8 +389,7 @@ const heroCardStyle: CSSProperties = {
   overflow: 'hidden',
   borderRadius: 28,
   padding: 22,
-  background:
-    'linear-gradient(145deg, rgba(255,255,255,0.96) 0%, rgba(240,249,255,0.94) 100%)',
+  background: 'linear-gradient(145deg, rgba(255,255,255,0.96) 0%, rgba(240,249,255,0.94) 100%)',
   boxShadow: '0 18px 50px rgba(15, 23, 42, 0.08)',
   border: '1px solid rgba(255,255,255,0.8)',
   backdropFilter: 'blur(8px)',
@@ -421,6 +416,24 @@ const heroTagStyle: CSSProperties = {
   color: '#0f172a',
   background: 'rgba(255,255,255,0.82)',
   border: '1px solid rgba(148,163,184,0.25)',
+}
+
+const secretHeroTagStyle: CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  minHeight: 30,
+  padding: '0 12px',
+  borderRadius: 999,
+  fontSize: 12,
+  fontWeight: 800,
+  letterSpacing: 0.2,
+  color: '#0f172a',
+  background: 'rgba(255,255,255,0.82)',
+  border: '1px solid rgba(148,163,184,0.25)',
+  cursor: 'pointer',
+  userSelect: 'none',
+  WebkitTapHighlightColor: 'transparent',
 }
 
 const titleStyle: CSSProperties = {
@@ -503,8 +516,7 @@ const cardStyle: CSSProperties = {
   gap: 16,
   borderRadius: 24,
   padding: 18,
-  background:
-    'linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(248,250,252,0.96) 100%)',
+  background: 'linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(248,250,252,0.96) 100%)',
   border: '1px solid rgba(226,232,240,0.9)',
   boxShadow: '0 16px 42px rgba(15, 23, 42, 0.07)',
 }
@@ -547,8 +559,7 @@ const datePanelStyle: CSSProperties = {
   gap: 6,
   padding: 16,
   borderRadius: 20,
-  background:
-    'linear-gradient(180deg, rgba(240,249,255,0.95) 0%, rgba(255,255,255,0.92) 100%)',
+  background: 'linear-gradient(180deg, rgba(240,249,255,0.95) 0%, rgba(255,255,255,0.92) 100%)',
   border: '1px solid #dbeafe',
   boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.75)',
   textAlign: 'center',
@@ -580,15 +591,6 @@ const sectionStyle: CSSProperties = {
   gap: 12,
 }
 
-const priceSectionStyle: CSSProperties = {
-  display: 'grid',
-  gap: 12,
-  padding: 14,
-  borderRadius: 20,
-  background: 'rgba(248,250,252,0.92)',
-  border: '1px solid #e2e8f0',
-}
-
 const sectionHeadingStyle: CSSProperties = {
   fontSize: 18,
   fontWeight: 900,
@@ -596,85 +598,50 @@ const sectionHeadingStyle: CSSProperties = {
   color: '#0f172a',
 }
 
-const sectionGridStyle: CSSProperties = {
+const compactRowsGridStyle: CSSProperties = {
   display: 'grid',
-  gap: 10,
+  gap: 12,
 }
 
-const infoRowCardStyle: CSSProperties = {
-  display: 'grid',
-  gap: 10,
-  padding: 14,
-  borderRadius: 18,
-  background: 'rgba(248,250,252,0.96)',
-  border: '1px solid #e2e8f0',
-}
-
-const infoRowTopStyle: CSSProperties = {
+const apartmentRowStyle: CSSProperties = {
   display: 'flex',
   justifyContent: 'space-between',
   alignItems: 'center',
-  gap: 12,
+  gap: 14,
+  padding: 16,
+  borderRadius: 18,
+  background: 'rgba(248,250,252,0.96)',
+  border: '1px solid #e2e8f0',
   flexWrap: 'wrap',
 }
 
-const infoLabelStyle: CSSProperties = {
-  fontSize: 16,
+const apartmentRowLeftStyle: CSSProperties = {
+  display: 'grid',
+  gap: 4,
+}
+
+const apartmentLabelStyle: CSSProperties = {
+  fontSize: 18,
   fontWeight: 800,
   color: '#1e293b',
 }
 
-const availabilityPillStyle: CSSProperties = {
+const apartmentPriceStyle: CSSProperties = {
+  fontSize: 16,
+  fontWeight: 700,
+  color: '#475569',
+}
+
+const freeBadgeBaseStyle: CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
   justifyContent: 'center',
-  minHeight: 30,
-  padding: '0 12px',
+  minHeight: 38,
+  padding: '0 14px',
   borderRadius: 999,
-  fontSize: 13,
+  fontSize: 15,
   fontWeight: 900,
-}
-
-const progressTrackStyle: CSSProperties = {
-  width: '100%',
-  height: 10,
-  borderRadius: 999,
-  background: '#e2e8f0',
-  overflow: 'hidden',
-}
-
-const progressFillStyle: CSSProperties = {
-  height: '100%',
-  borderRadius: 999,
-  background: 'linear-gradient(90deg, #38bdf8 0%, #0ea5e9 100%)',
-}
-
-const priceGridStyle: CSSProperties = {
-  display: 'grid',
-  gap: 10,
-}
-
-const priceRowStyle: CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'space-between',
-  gap: 12,
-  padding: '12px 14px',
-  borderRadius: 16,
-  background: '#ffffff',
-  border: '1px solid #e2e8f0',
-}
-
-const priceLabelStyle: CSSProperties = {
-  fontSize: 16,
-  color: '#334155',
-  fontWeight: 700,
-}
-
-const priceValueStyle: CSSProperties = {
-  fontSize: 18,
-  color: '#0f172a',
-  fontWeight: 900,
+  whiteSpace: 'nowrap',
 }
 
 const noteStyle: CSSProperties = {
@@ -685,18 +652,4 @@ const noteStyle: CSSProperties = {
   color: '#9a3412',
   fontSize: 14,
   lineHeight: 1.45,
-}
-
-const footerStyle: CSSProperties = {
-  display: 'flex',
-  justifyContent: 'center',
-  marginTop: 20,
-  paddingBottom: 8,
-}
-
-const adminLinkStyle: CSSProperties = {
-  fontSize: 12,
-  color: '#94a3b8',
-  textDecoration: 'none',
-  fontWeight: 700,
 }
