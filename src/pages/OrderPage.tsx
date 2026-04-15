@@ -72,6 +72,13 @@ export default function OrderPage() {
   const [error, setError] = useState<string | null>(null)
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [form, setForm] = useState<OrderFormValues>(createInitialOrderForm())
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+      return false
+    }
+
+    return window.matchMedia('(prefers-color-scheme: dark)').matches
+  })
 
   async function loadDepartures() {
     setError(null)
@@ -228,12 +235,81 @@ export default function OrderPage() {
     }
   }, [departures, form.departureId])
 
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+      return
+    }
+
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
+    const handleChange = (event: MediaQueryListEvent) => {
+      setIsDarkMode(event.matches)
+    }
+
+    setIsDarkMode(mediaQuery.matches)
+
+    if (typeof mediaQuery.addEventListener === 'function') {
+      mediaQuery.addEventListener('change', handleChange)
+      return () => mediaQuery.removeEventListener('change', handleChange)
+    }
+
+    mediaQuery.addListener(handleChange)
+    return () => mediaQuery.removeListener(handleChange)
+  }, [])
+
   const selectedDeparture = useMemo(() => {
     return departures.find((item) => item.id === form.departureId) ?? null
   }, [departures, form.departureId])
 
+  const themeVars: CSSProperties = {
+    '--page-bg': isDarkMode
+      ? 'linear-gradient(180deg, #020617 0%, #0f172a 24%, #111827 100%)'
+      : 'linear-gradient(180deg, #e8f4ff 0%, #f4f8fc 24%, #f6f8fb 100%)',
+    '--text-main': isDarkMode ? '#e5eef7' : '#0f172a',
+    '--text-secondary': isDarkMode ? '#cbd5e1' : '#475569',
+    '--text-muted': isDarkMode ? '#94a3b8' : '#64748b',
+    '--text-label': isDarkMode ? '#dbe5f0' : '#334155',
+    '--card-bg': isDarkMode ? 'rgba(15,23,42,0.96)' : 'rgba(255,255,255,0.96)',
+    '--card-border': isDarkMode ? 'rgba(71,85,105,0.72)' : 'rgba(226,232,240,0.9)',
+    '--card-shadow': isDarkMode
+      ? '0 18px 50px rgba(0, 0, 0, 0.34)'
+      : '0 18px 50px rgba(15, 23, 42, 0.08)',
+    '--section-bg': isDarkMode ? '#111827' : '#f8fafc',
+    '--section-border': isDarkMode ? '#334155' : '#e2e8f0',
+    '--state-bg': isDarkMode ? '#111827' : '#f8fafc',
+    '--state-border': isDarkMode ? '#334155' : '#e2e8f0',
+    '--input-bg': isDarkMode ? '#0b1220' : '#ffffff',
+    '--input-border': isDarkMode ? '#475569' : '#cbd5e1',
+    '--input-text': isDarkMode ? '#f8fafc' : '#0f172a',
+    '--input-placeholder': isDarkMode ? '#94a3b8' : '#64748b',
+    '--hint-bg': isDarkMode ? '#082f49' : '#ecfeff',
+    '--hint-border': isDarkMode ? '#155e75' : '#a5f3fc',
+    '--hint-text': isDarkMode ? '#bae6fd' : '#155e75',
+    '--choice-bg': isDarkMode ? '#0b1220' : '#ffffff',
+    '--choice-border': isDarkMode ? '#475569' : '#cbd5e1',
+    '--selected-bg': isDarkMode ? '#042f2e' : '#f0fdfa',
+    '--selected-border': '#14b8a6',
+    '--selected-shadow': isDarkMode
+      ? '0 0 0 2px rgba(45,212,191,0.16)'
+      : '0 0 0 2px rgba(20,184,166,0.12)',
+    '--accent': '#0f766e',
+    '--danger-bg': isDarkMode ? '#3f1d1d' : '#fef2f2',
+    '--danger-border': isDarkMode ? '#7f1d1d' : '#fecaca',
+    '--danger-text': isDarkMode ? '#fca5a5' : '#b91c1c',
+    '--secondary-button-bg': isDarkMode ? '#111827' : '#ffffff',
+    '--secondary-button-border': isDarkMode ? '#475569' : '#cbd5e1',
+    '--primary-shadow': isDarkMode
+      ? '0 16px 34px rgba(20, 184, 166, 0.18)'
+      : '0 16px 34px rgba(15, 118, 110, 0.22)',
+  }
+
   return (
-    <main style={pageStyle}>
+    <main
+      style={{
+        ...themeVars,
+        ...pageStyle,
+        colorScheme: isDarkMode ? 'dark' : 'light',
+      }}
+    >
       <div style={containerStyle}>
         <button type="button" style={backButtonStyle} onClick={() => navigate('/')}>
           ← Späť na ponuku termínov
@@ -252,7 +328,7 @@ export default function OrderPage() {
           </div>
 
           {loading ? <div style={stateBoxStyle}>Načítavam termíny...</div> : null}
-          {!loading && error ? <div style={{ ...stateBoxStyle, color: '#b91c1c' }}>{error}</div> : null}
+          {!loading && error ? <div style={{ ...stateBoxStyle, color: 'var(--danger-text)' }}>{error}</div> : null}
           {!loading && !error && departures.length === 0 ? (
             <div style={stateBoxStyle}>Momentálne nie sú dostupné žiadne termíny.</div>
           ) : null}
@@ -474,8 +550,8 @@ export default function OrderPage() {
 
 const pageStyle: CSSProperties = {
   minHeight: '100vh',
-  background: 'linear-gradient(180deg, #e8f4ff 0%, #f4f8fc 24%, #f6f8fb 100%)',
-  color: '#0f172a',
+  background: 'var(--page-bg)',
+  color: 'var(--text-main)',
   padding: '18px 14px 32px',
   boxSizing: 'border-box',
 }
@@ -489,7 +565,7 @@ const containerStyle: CSSProperties = {
 const backButtonStyle: CSSProperties = {
   border: 'none',
   background: 'transparent',
-  color: '#0f766e',
+  color: 'var(--accent)',
   fontSize: 15,
   fontWeight: 800,
   padding: '8px 0 14px',
@@ -501,9 +577,9 @@ const cardStyle: CSSProperties = {
   gap: 20,
   borderRadius: 28,
   padding: 20,
-  background: 'rgba(255,255,255,0.96)',
-  border: '1px solid rgba(226,232,240,0.9)',
-  boxShadow: '0 18px 50px rgba(15, 23, 42, 0.08)',
+  background: 'var(--card-bg)',
+  border: '1px solid var(--card-border)',
+  boxShadow: 'var(--card-shadow)',
 }
 
 const headerBlockStyle: CSSProperties = {
@@ -515,7 +591,7 @@ const eyebrowStyle: CSSProperties = {
   fontSize: 12,
   fontWeight: 900,
   letterSpacing: 1,
-  color: '#64748b',
+  color: 'var(--text-muted)',
   textTransform: 'uppercase',
 }
 
@@ -524,20 +600,21 @@ const titleStyle: CSSProperties = {
   fontSize: 30,
   lineHeight: 1.1,
   fontWeight: 900,
+  color: 'var(--text-main)',
 }
 
 const subtitleStyle: CSSProperties = {
   margin: 0,
   fontSize: 15,
   lineHeight: 1.5,
-  color: '#475569',
+  color: 'var(--text-secondary)',
 }
 
 const requiredLegendStyle: CSSProperties = {
   margin: 0,
   fontSize: 14,
   lineHeight: 1.4,
-  color: '#64748b',
+  color: 'var(--text-muted)',
   fontWeight: 700,
 }
 
@@ -549,8 +626,9 @@ const requiredMarkStyle: CSSProperties = {
 const stateBoxStyle: CSSProperties = {
   borderRadius: 18,
   padding: 16,
-  background: '#f8fafc',
-  border: '1px solid #e2e8f0',
+  background: 'var(--state-bg)',
+  border: '1px solid var(--state-border)',
+  color: 'var(--text-main)',
   fontSize: 16,
   fontWeight: 700,
 }
@@ -565,14 +643,14 @@ const sectionStyle: CSSProperties = {
   gap: 12,
   padding: 16,
   borderRadius: 20,
-  background: '#f8fafc',
-  border: '1px solid #e2e8f0',
+  background: 'var(--section-bg)',
+  border: '1px solid var(--section-border)',
 }
 
 const sectionTitleStyle: CSSProperties = {
   fontSize: 18,
   fontWeight: 900,
-  color: '#0f172a',
+  color: 'var(--text-main)',
 }
 
 const fieldWrapStyle: CSSProperties = {
@@ -583,7 +661,7 @@ const fieldWrapStyle: CSSProperties = {
 const fieldLabelStyle: CSSProperties = {
   fontSize: 14,
   fontWeight: 800,
-  color: '#334155',
+  color: 'var(--text-label)',
 }
 
 const inputStyle: CSSProperties = {
@@ -591,20 +669,26 @@ const inputStyle: CSSProperties = {
   minHeight: 48,
   padding: '0 14px',
   borderRadius: 14,
-  border: '1px solid #cbd5e1',
+  border: '1px solid var(--input-border)',
   fontSize: 16,
   boxSizing: 'border-box',
-  background: '#ffffff',
+  background: 'var(--input-bg)',
+  color: 'var(--input-text)',
+  WebkitTextFillColor: 'var(--input-text)',
+  caretColor: 'var(--input-text)',
 }
 
 const textareaStyle: CSSProperties = {
   width: '100%',
   padding: '12px 14px',
   borderRadius: 14,
-  border: '1px solid #cbd5e1',
+  border: '1px solid var(--input-border)',
   fontSize: 16,
   boxSizing: 'border-box',
-  background: '#ffffff',
+  background: 'var(--input-bg)',
+  color: 'var(--input-text)',
+  WebkitTextFillColor: 'var(--input-text)',
+  caretColor: 'var(--input-text)',
   resize: 'vertical',
   fontFamily: 'inherit',
 }
@@ -612,9 +696,9 @@ const textareaStyle: CSSProperties = {
 const hintBoxStyle: CSSProperties = {
   padding: 12,
   borderRadius: 14,
-  background: '#ecfeff',
-  border: '1px solid #a5f3fc',
-  color: '#155e75',
+  background: 'var(--hint-bg)',
+  border: '1px solid var(--hint-border)',
+  color: 'var(--hint-text)',
   fontSize: 14,
   fontWeight: 700,
 }
@@ -631,19 +715,19 @@ const choiceButtonStyle: CSSProperties = {
   minHeight: 50,
   padding: '0 14px',
   borderRadius: 14,
-  border: '1px solid #cbd5e1',
-  background: '#ffffff',
+  border: '1px solid var(--choice-border)',
+  background: 'var(--choice-bg)',
   fontSize: 16,
   fontWeight: 800,
-  color: '#0f172a',
+  color: 'var(--text-main)',
   cursor: 'pointer',
   textAlign: 'left',
 }
 
 const selectedChoiceButtonStyle: CSSProperties = {
-  border: '1px solid #14b8a6',
-  background: '#f0fdfa',
-  boxShadow: '0 0 0 2px rgba(20, 184, 166, 0.12)',
+  border: '1px solid var(--selected-border)',
+  background: 'var(--selected-bg)',
+  boxShadow: 'var(--selected-shadow)',
 }
 
 const choiceCheckboxStyle: CSSProperties = {
@@ -659,7 +743,7 @@ const stopsWrapStyle: CSSProperties = {
 const smallSectionLabelStyle: CSSProperties = {
   fontSize: 14,
   fontWeight: 800,
-  color: '#334155',
+  color: 'var(--text-label)',
 }
 
 const stopsGridStyle: CSSProperties = {
@@ -672,16 +756,17 @@ const stopButtonStyle: CSSProperties = {
   gap: 8,
   padding: 12,
   borderRadius: 14,
-  border: '1px solid #cbd5e1',
-  background: '#ffffff',
+  border: '1px solid var(--choice-border)',
+  background: 'var(--choice-bg)',
+  color: 'var(--text-main)',
   cursor: 'pointer',
   textAlign: 'left',
 }
 
 const selectedStopButtonStyle: CSSProperties = {
-  border: '1px solid #14b8a6',
-  background: '#f0fdfa',
-  boxShadow: '0 0 0 2px rgba(20, 184, 166, 0.12)',
+  border: '1px solid var(--selected-border)',
+  background: 'var(--selected-bg)',
+  boxShadow: 'var(--selected-shadow)',
 }
 
 const stopTopRowStyle: CSSProperties = {
@@ -694,14 +779,14 @@ const stopTopRowStyle: CSSProperties = {
 const stopTimeStyle: CSSProperties = {
   fontSize: 13,
   fontWeight: 900,
-  color: '#0f766e',
+  color: 'var(--accent)',
 }
 
 const stopLabelStyle: CSSProperties = {
   fontSize: 14,
   lineHeight: 1.45,
   fontWeight: 700,
-  color: '#1e293b',
+  color: 'var(--text-main)',
 }
 
 const counterGridStyle: CSSProperties = {
@@ -714,14 +799,14 @@ const counterCardStyle: CSSProperties = {
   gap: 10,
   padding: 14,
   borderRadius: 16,
-  background: '#ffffff',
-  border: '1px solid #cbd5e1',
+  background: 'var(--choice-bg)',
+  border: '1px solid var(--choice-border)',
 }
 
 const counterLabelStyle: CSSProperties = {
   fontSize: 15,
   fontWeight: 800,
-  color: '#1e293b',
+  color: 'var(--text-main)',
 }
 
 const counterControlsStyle: CSSProperties = {
@@ -749,22 +834,22 @@ const counterValueStyle: CSSProperties = {
   textAlign: 'center',
   fontSize: 24,
   fontWeight: 900,
-  color: '#0f172a',
+  color: 'var(--text-main)',
 }
 
 const smallHintStyle: CSSProperties = {
   fontSize: 13,
   lineHeight: 1.45,
-  color: '#64748b',
+  color: 'var(--text-muted)',
   fontWeight: 700,
 }
 
 const errorBoxStyle: CSSProperties = {
   padding: 14,
   borderRadius: 16,
-  background: '#fef2f2',
-  border: '1px solid #fecaca',
-  color: '#b91c1c',
+  background: 'var(--danger-bg)',
+  border: '1px solid var(--danger-border)',
+  color: 'var(--danger-text)',
   fontSize: 14,
   fontWeight: 800,
 }
@@ -776,10 +861,10 @@ const footerActionsStyle: CSSProperties = {
 
 const secondaryButtonStyle: CSSProperties = {
   minHeight: 52,
-  border: '1px solid #cbd5e1',
+  border: '1px solid var(--secondary-button-border)',
   borderRadius: 16,
-  background: '#ffffff',
-  color: '#0f172a',
+  background: 'var(--secondary-button-bg)',
+  color: 'var(--text-main)',
   fontSize: 16,
   fontWeight: 900,
   cursor: 'pointer',
@@ -795,5 +880,5 @@ const primaryButtonStyle: CSSProperties = {
   fontWeight: 900,
   letterSpacing: 0.3,
   cursor: 'pointer',
-  boxShadow: '0 16px 34px rgba(15, 118, 110, 0.22)',
+  boxShadow: 'var(--primary-shadow)',
 }
