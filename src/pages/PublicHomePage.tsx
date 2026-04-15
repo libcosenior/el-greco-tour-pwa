@@ -409,21 +409,6 @@ const heroTopRowStyle: CSSProperties = {
   marginBottom: 14,
 }
 
-const heroTagStyle: CSSProperties = {
-  display: 'inline-flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  minHeight: 30,
-  padding: '0 12px',
-  borderRadius: 999,
-  fontSize: 12,
-  fontWeight: 800,
-  letterSpacing: 0.2,
-  color: '#0f172a',
-  background: 'rgba(255,255,255,0.82)',
-  border: '1px solid rgba(148,163,184,0.25)',
-}
-
 const secretHeroTagStyle: CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
