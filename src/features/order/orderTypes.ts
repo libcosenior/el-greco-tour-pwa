@@ -6,6 +6,7 @@ export type OrderFormValues = {
   birthDate: string
   permanentResidence: string
   mobile: string
+  email: string
   transport: TransportType
   boardingStopId: string
   adults: number
@@ -22,6 +23,7 @@ export function createInitialOrderForm(): OrderFormValues {
     birthDate: '',
     permanentResidence: '',
     mobile: '',
+    email: '',
     transport: '',
     boardingStopId: '',
     adults: 1,

@@ -201,12 +201,16 @@ export default function OrderPage() {
     }
 
     if (!form.mobile.trim()) {
-      return 'Vyplň mobil.'
-    }
+			return 'Vyplň mobil.'
+		}
 
-    if (!form.transport) {
-      return 'Vyber dopravu.'
-    }
+		if (!form.email.trim()) {
+			return 'Vyplň email.'
+		}
+
+		if (!form.transport) {
+			return 'Vyber dopravu.'
+		}
 
     if (form.transport === 'bus' && !form.boardingStopId) {
       return 'Vyber nástupnú zastávku.'

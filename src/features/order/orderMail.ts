@@ -34,10 +34,6 @@ function formatBirthDate(value: string): string {
   return `${day}.${month}.${year}`
 }
 
-function checkbox(checked: boolean): string {
-  return checked ? '☒' : '☐'
-}
-
 export function formatTripDateRange(departure: OrderDeparture): string {
   return `${formatDate(departure.start_date)} – ${formatDate(departure.end_date)}`
 }
@@ -57,20 +53,18 @@ export function buildOrderEmailBody(departure: OrderDeparture, form: OrderFormVa
     `Dátum narodenia: ${formatBirthDate(form.birthDate)}`,
     `Trvalý pobyt: ${form.permanentResidence}`,
     `Mobil: ${form.mobile}`,
+    `Email: ${form.email}`,
     '',
     'DOPRAVA',
-    `${checkbox(form.transport === 'own')} vlastná`,
-    `${checkbox(form.transport === 'bus')} autobusom`,
+    form.transport === 'bus' ? 'Autobusom' : 'Vlastná',
   ]
 
   if (form.transport === 'bus') {
-    lines.push('', 'NÁSTUPNÉ ZASTÁVKY')
-
-    BOARDING_STOPS.forEach((stop) => {
-      lines.push(`${checkbox(stop.id === form.boardingStopId)} ${stop.label} — ${stop.time}`)
-    })
-
-    lines.push('', `Vybraná nástupná zastávka: ${selectedStop ? `${selectedStop.label} — ${selectedStop.time}` : '-'}`)
+    lines.push(
+      '',
+      'NÁSTUPNÁ ZASTÁVKA',
+      selectedStop ? `${selectedStop.label} — ${selectedStop.time}` : '-',
+    )
   }
 
   lines.push(
