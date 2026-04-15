@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import PublicHomePage from './pages/PublicHomePage'
+import OrderPage from './pages/OrderPage'
 import AdminLoginPage from './pages/AdminLoginPage'
 import AdminDashboardPage from './pages/AdminDashboardPage'
 import NotFoundPage from './pages/NotFoundPage'
@@ -65,6 +66,7 @@ export default function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<PublicHomePage />} />
+        <Route path="/objednavka" element={<OrderPage />} />
 
         <Route
           path="/admin/login"

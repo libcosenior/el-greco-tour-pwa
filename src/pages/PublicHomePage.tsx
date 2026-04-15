@@ -171,9 +171,8 @@ export default function PublicHomePage() {
   }
 
   function handleOrderTripClick() {
-    // Zatiaľ iba vizuálne tlačidlo.
-    // Keď budeš chcieť, napojíme ho na formulár / telefón / e-mail / WhatsApp.
-  }
+  navigate('/objednavka')
+}
 
   useEffect(() => {
     let alive = true
