@@ -345,7 +345,7 @@ export default function AdminDashboardPage() {
 
             <div style={actionsWrapStyle}>
               <Link to="/admin/nastavenia" style={secondaryLinkButtonStyle}>
-                Nastavenie apartmánov
+                Počet funkčných apartmánov
               </Link>
 
               <Link to="/" style={secondaryLinkButtonStyle}>
