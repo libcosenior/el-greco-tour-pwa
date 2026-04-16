@@ -7,13 +7,31 @@ import AdminDashboardPage from './pages/AdminDashboardPage'
 import AdminAccommodationSettingsPage from './pages/AdminAccommodationSettingsPage'
 import NotFoundPage from './pages/NotFoundPage'
 import { supabase } from './lib/supabase'
+import { isUserAdmin } from './lib/adminAccess'
 
 export default function App() {
   const [authChecked, setAuthChecked] = useState(false)
-  const [isLoggedIn, setIsLoggedIn] = useState(false)
+  const [isAdmin, setIsAdmin] = useState(false)
 
   useEffect(() => {
     let isMounted = true
+
+    async function refreshFromSession(session: Awaited<ReturnType<typeof supabase.auth.getSession>>['data']['session']) {
+      if (!isMounted) return
+
+      if (!session) {
+        setIsAdmin(false)
+        setAuthChecked(true)
+        return
+      }
+
+      const admin = await isUserAdmin(session.user.id)
+
+      if (!isMounted) return
+
+      setIsAdmin(admin)
+      setAuthChecked(true)
+    }
 
     async function loadSession() {
       const { data, error } = await supabase.auth.getSession()
@@ -21,21 +39,18 @@ export default function App() {
       if (!isMounted) return
 
       if (error) {
-        setIsLoggedIn(false)
+        setIsAdmin(false)
         setAuthChecked(true)
         return
       }
 
-      setIsLoggedIn(!!data.session)
-      setAuthChecked(true)
+      await refreshFromSession(data.session)
     }
 
     loadSession()
 
     const { data } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!isMounted) return
-      setIsLoggedIn(!!session)
-      setAuthChecked(true)
+      void refreshFromSession(session)
     })
 
     return () => {
@@ -71,17 +86,17 @@ export default function App() {
 
         <Route
           path="/admin/login"
-          element={isLoggedIn ? <Navigate to="/admin" replace /> : <AdminLoginPage />}
+          element={isAdmin ? <Navigate to="/admin" replace /> : <AdminLoginPage />}
         />
 
         <Route
           path="/admin"
-          element={isLoggedIn ? <AdminDashboardPage /> : <Navigate to="/admin/login" replace />}
+          element={isAdmin ? <AdminDashboardPage /> : <Navigate to="/admin/login" replace />}
         />
 
         <Route
           path="/admin/nastavenia"
-          element={isLoggedIn ? <AdminAccommodationSettingsPage /> : <Navigate to="/admin/login" replace />}
+          element={isAdmin ? <AdminAccommodationSettingsPage /> : <Navigate to="/admin/login" replace />}
         />
 
         <Route path="*" element={<NotFoundPage />} />
