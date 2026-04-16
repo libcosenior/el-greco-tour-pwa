@@ -3,6 +3,8 @@ import type { CSSProperties } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 
+type ThemeStyleVars = CSSProperties & Record<`--${string}`, string>
+
 const FALLBACK_BUS_SURCHARGE_PER_PERSON = 160
 
 type Departure = {
@@ -58,24 +60,24 @@ function freeBadgeStyle(free: number, total: number): CSSProperties {
 
   if (ratio <= 0.2) {
     return {
-      background: '#fef2f2',
-      color: '#b91c1c',
-      border: '1px solid #fecaca',
+      background: 'var(--badge-danger-bg)',
+      color: 'var(--badge-danger-text)',
+      border: '1px solid var(--badge-danger-border)',
     }
   }
 
   if (ratio <= 0.5) {
     return {
-      background: '#fff7ed',
-      color: '#c2410c',
-      border: '1px solid #fdba74',
+      background: 'var(--badge-warn-bg)',
+      color: 'var(--badge-warn-text)',
+      border: '1px solid var(--badge-warn-border)',
     }
   }
 
   return {
-    background: '#f0fdf4',
-    color: '#166534',
-    border: '1px solid #bbf7d0',
+    background: 'var(--badge-ok-bg)',
+    color: 'var(--badge-ok-text)',
+    border: '1px solid var(--badge-ok-border)',
   }
 }
 
@@ -101,6 +103,13 @@ export default function PublicHomePage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [adminTarget, setAdminTarget] = useState('/admin/login')
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+      return false
+    }
+
+    return window.matchMedia('(prefers-color-scheme: dark)').matches
+  })
 
   const adminTapCountRef = useRef(0)
   const adminTapTimerRef = useRef<number | null>(null)
@@ -130,6 +139,7 @@ export default function PublicHomePage() {
         sort_order,
         note
       `)
+      .eq('published', true)
       .order('sort_order', { ascending: true })
       .order('start_date', { ascending: true })
 
@@ -171,8 +181,8 @@ export default function PublicHomePage() {
   }
 
   function handleOrderTripClick() {
-  navigate('/objednavka')
-}
+    navigate('/objednavka')
+  }
 
   useEffect(() => {
     let alive = true
@@ -221,6 +231,27 @@ export default function PublicHomePage() {
         window.clearTimeout(adminTapTimerRef.current)
       }
     }
+  }, [navigate])
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+      return
+    }
+
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
+    const handleChange = (event: MediaQueryListEvent) => {
+      setIsDarkMode(event.matches)
+    }
+
+    setIsDarkMode(mediaQuery.matches)
+
+    if (typeof mediaQuery.addEventListener === 'function') {
+      mediaQuery.addEventListener('change', handleChange)
+      return () => mediaQuery.removeEventListener('change', handleChange)
+    }
+
+    mediaQuery.addListener(handleChange)
+    return () => mediaQuery.removeListener(handleChange)
   }, [])
 
   const busSurchargePerPerson = useMemo(() => {
@@ -234,7 +265,7 @@ export default function PublicHomePage() {
     }
 
     if (error) {
-      return <div style={{ ...stateCardStyle, color: '#b91c1c' }}>{error}</div>
+      return <div style={{ ...stateCardStyle, color: 'var(--danger-text)' }}>{error}</div>
     }
 
     if (departures.length === 0) {
@@ -308,8 +339,87 @@ export default function PublicHomePage() {
     )
   }, [departures, error, loading])
 
+  const themeVars: ThemeStyleVars = {
+    '--page-bg': isDarkMode
+      ? 'linear-gradient(180deg, #020617 0%, #0f172a 24%, #111827 100%)'
+      : 'linear-gradient(180deg, #e8f4ff 0%, #f4f8fc 24%, #f6f8fb 100%)',
+    '--text-main': isDarkMode ? '#f8fafc' : '#0f172a',
+    '--text-strong': isDarkMode ? '#ffffff' : '#0f172a',
+    '--text-secondary': isDarkMode ? '#cbd5e1' : '#475569',
+    '--text-muted': isDarkMode ? '#94a3b8' : '#64748b',
+    '--hero-card-bg': isDarkMode
+      ? 'linear-gradient(145deg, rgba(15,23,42,0.96) 0%, rgba(17,24,39,0.94) 100%)'
+      : 'linear-gradient(145deg, rgba(255,255,255,0.96) 0%, rgba(240,249,255,0.94) 100%)',
+    '--hero-card-border': isDarkMode ? 'rgba(71,85,105,0.68)' : 'rgba(255,255,255,0.8)',
+    '--hero-card-shadow': isDarkMode
+      ? '0 18px 50px rgba(0, 0, 0, 0.34)'
+      : '0 18px 50px rgba(15, 23, 42, 0.08)',
+    '--tag-bg': isDarkMode ? 'rgba(15,23,42,0.9)' : 'rgba(255,255,255,0.82)',
+    '--tag-border': isDarkMode ? 'rgba(71,85,105,0.72)' : 'rgba(148,163,184,0.25)',
+    '--tag-text': isDarkMode ? '#f8fafc' : '#0f172a',
+    '--info-card-bg': isDarkMode ? 'rgba(11,18,32,0.88)' : 'rgba(255,255,255,0.84)',
+    '--info-card-border': isDarkMode ? 'rgba(71,85,105,0.78)' : 'rgba(226,232,240,0.9)',
+    '--info-card-shadow': isDarkMode
+      ? '0 8px 24px rgba(0, 0, 0, 0.24)'
+      : '0 8px 24px rgba(15, 23, 42, 0.04)',
+    '--state-bg': isDarkMode ? 'rgba(15,23,42,0.92)' : 'rgba(255,255,255,0.9)',
+    '--state-shadow': isDarkMode
+      ? '0 14px 36px rgba(0, 0, 0, 0.26)'
+      : '0 14px 36px rgba(15, 23, 42, 0.06)',
+    '--card-bg': isDarkMode
+      ? 'linear-gradient(180deg, rgba(15,23,42,0.98) 0%, rgba(17,24,39,0.96) 100%)'
+      : 'linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(248,250,252,0.96) 100%)',
+    '--card-border': isDarkMode ? 'rgba(71,85,105,0.72)' : 'rgba(226,232,240,0.9)',
+    '--card-shadow': isDarkMode
+      ? '0 16px 42px rgba(0, 0, 0, 0.28)'
+      : '0 16px 42px rgba(15, 23, 42, 0.07)',
+    '--date-panel-bg': isDarkMode
+      ? 'linear-gradient(180deg, rgba(8,47,73,0.86) 0%, rgba(15,23,42,0.9) 100%)'
+      : 'linear-gradient(180deg, rgba(240,249,255,0.95) 0%, rgba(255,255,255,0.92) 100%)',
+    '--date-panel-border': isDarkMode ? '#155e75' : '#dbeafe',
+    '--date-panel-shadow': isDarkMode
+      ? 'inset 0 1px 0 rgba(186,230,253,0.08)'
+      : 'inset 0 1px 0 rgba(255,255,255,0.75)',
+    '--row-bg': isDarkMode ? 'rgba(11,18,32,0.92)' : 'rgba(248,250,252,0.96)',
+    '--row-border': isDarkMode ? '#334155' : '#e2e8f0',
+    '--note-bg': isDarkMode ? '#3b2412' : '#fff7ed',
+    '--note-border': isDarkMode ? '#9a3412' : '#fed7aa',
+    '--note-text': isDarkMode ? '#fdba74' : '#9a3412',
+    '--danger-text': isDarkMode ? '#fca5a5' : '#b91c1c',
+    '--badge-danger-bg': isDarkMode ? '#3f1d1d' : '#fef2f2',
+    '--badge-danger-text': isDarkMode ? '#fca5a5' : '#b91c1c',
+    '--badge-danger-border': isDarkMode ? '#7f1d1d' : '#fecaca',
+    '--badge-warn-bg': isDarkMode ? '#3b2412' : '#fff7ed',
+    '--badge-warn-text': isDarkMode ? '#fdba74' : '#c2410c',
+    '--badge-warn-border': isDarkMode ? '#9a3412' : '#fdba74',
+    '--badge-ok-bg': isDarkMode ? '#052e16' : '#f0fdf4',
+    '--badge-ok-text': isDarkMode ? '#86efac' : '#166534',
+    '--badge-ok-border': isDarkMode ? '#166534' : '#bbf7d0',
+    '--button-shadow': isDarkMode
+      ? '0 16px 34px rgba(20, 184, 166, 0.18)'
+      : '0 16px 34px rgba(15, 118, 110, 0.28)',
+    '--fixed-bar-bg': isDarkMode
+      ? 'linear-gradient(180deg, rgba(2,6,23,0) 0%, rgba(2,6,23,0.88) 32%, rgba(2,6,23,1) 100%)'
+      : 'linear-gradient(180deg, rgba(246,248,251,0) 0%, rgba(246,248,251,0.9) 32%, rgba(246,248,251,1) 100%)',
+    '--orb-top': isDarkMode
+      ? 'radial-gradient(circle, rgba(20,184,166,0.16) 0%, rgba(20,184,166,0) 72%)'
+      : 'radial-gradient(circle, rgba(59,130,246,0.18) 0%, rgba(59,130,246,0) 72%)',
+    '--orb-bottom': isDarkMode
+      ? 'radial-gradient(circle, rgba(45,212,191,0.14) 0%, rgba(45,212,191,0) 72%)'
+      : 'radial-gradient(circle, rgba(16,185,129,0.16) 0%, rgba(16,185,129,0) 72%)',
+    '--card-glow': isDarkMode
+      ? 'radial-gradient(circle, rgba(45,212,191,0.16) 0%, rgba(45,212,191,0) 72%)'
+      : 'radial-gradient(circle, rgba(125,211,252,0.22) 0%, rgba(125,211,252,0) 72%)',
+  }
+
   return (
-    <main style={pageStyle}>
+    <main
+      style={{
+        ...themeVars,
+        ...pageStyle,
+        colorScheme: isDarkMode ? 'dark' : 'light',
+      }}
+    >
       <div style={backgroundOrbTopStyle} />
       <div style={backgroundOrbBottomStyle} />
 
@@ -317,7 +427,10 @@ export default function PublicHomePage() {
         <header style={heroWrapStyle}>
           <section style={heroCardStyle}>
             <div style={heroTopRowStyle}>
-              <span style={refreshHeroTagStyle} onClick={handleRefreshTap}>Aktualizovať</span>
+              <span style={refreshHeroTagStyle} onClick={handleRefreshTap}>
+                Aktualizovať
+              </span>
+
               <span style={secretHeroTagStyle} onClick={handleAdminSecretTap}>
                 CK EL GRECO TOUR
               </span>
@@ -365,8 +478,8 @@ const pageStyle: CSSProperties = {
   minHeight: '100vh',
   position: 'relative',
   overflow: 'hidden',
-  background: 'linear-gradient(180deg, #e8f4ff 0%, #f4f8fc 24%, #f6f8fb 100%)',
-  color: '#0f172a',
+  background: 'var(--page-bg)',
+  color: 'var(--text-main)',
 }
 
 const backgroundOrbTopStyle: CSSProperties = {
@@ -376,7 +489,7 @@ const backgroundOrbTopStyle: CSSProperties = {
   width: 260,
   height: 260,
   borderRadius: '50%',
-  background: 'radial-gradient(circle, rgba(59,130,246,0.18) 0%, rgba(59,130,246,0) 72%)',
+  background: 'var(--orb-top)',
   pointerEvents: 'none',
 }
 
@@ -387,7 +500,7 @@ const backgroundOrbBottomStyle: CSSProperties = {
   width: 280,
   height: 280,
   borderRadius: '50%',
-  background: 'radial-gradient(circle, rgba(16,185,129,0.16) 0%, rgba(16,185,129,0) 72%)',
+  background: 'var(--orb-bottom)',
   pointerEvents: 'none',
 }
 
@@ -410,9 +523,9 @@ const heroCardStyle: CSSProperties = {
   overflow: 'hidden',
   borderRadius: 28,
   padding: 22,
-  background: 'linear-gradient(145deg, rgba(255,255,255,0.96) 0%, rgba(240,249,255,0.94) 100%)',
-  boxShadow: '0 18px 50px rgba(15, 23, 42, 0.08)',
-  border: '1px solid rgba(255,255,255,0.8)',
+  background: 'var(--hero-card-bg)',
+  boxShadow: 'var(--hero-card-shadow)',
+  border: '1px solid var(--hero-card-border)',
   backdropFilter: 'blur(8px)',
 }
 
@@ -434,9 +547,9 @@ const secretHeroTagStyle: CSSProperties = {
   fontSize: 12,
   fontWeight: 800,
   letterSpacing: 0.2,
-  color: '#0f172a',
-  background: 'rgba(255,255,255,0.82)',
-  border: '1px solid rgba(148,163,184,0.25)',
+  color: 'var(--tag-text)',
+  background: 'var(--tag-bg)',
+  border: '1px solid var(--tag-border)',
   cursor: 'pointer',
   userSelect: 'none',
   WebkitTapHighlightColor: 'transparent',
@@ -452,9 +565,9 @@ const refreshHeroTagStyle: CSSProperties = {
   fontSize: 12,
   fontWeight: 800,
   letterSpacing: 0.2,
-  color: '#0f172a',
-  background: 'rgba(255,255,255,0.82)',
-  border: '1px solid rgba(148,163,184,0.25)',
+  color: 'var(--tag-text)',
+  background: 'var(--tag-bg)',
+  border: '1px solid var(--tag-border)',
   cursor: 'pointer',
   userSelect: 'none',
   WebkitTapHighlightColor: 'transparent',
@@ -467,11 +580,11 @@ const titleStyle: CSSProperties = {
   lineHeight: 1.1,
   fontWeight: 900,
   letterSpacing: 0.2,
-  color: '#0f172a',
+  color: 'var(--text-strong)',
   opacity: 1,
   position: 'relative',
   zIndex: 1,
-  textShadow: '0 1px 0 rgba(255,255,255,0.35)',
+  textShadow: '0 1px 0 rgba(255,255,255,0.08)',
 }
 
 const topInfoPrimaryStyle: CSSProperties = {
@@ -479,7 +592,7 @@ const topInfoPrimaryStyle: CSSProperties = {
   textAlign: 'center',
   fontSize: 16,
   fontWeight: 800,
-  color: '#1e293b',
+  color: 'var(--text-strong)',
 }
 
 const topInfoSecondaryStyle: CSSProperties = {
@@ -487,7 +600,7 @@ const topInfoSecondaryStyle: CSSProperties = {
   textAlign: 'center',
   fontSize: 16,
   fontWeight: 600,
-  color: '#475569',
+  color: 'var(--text-secondary)',
 }
 
 const heroInfoGridStyle: CSSProperties = {
@@ -499,37 +612,38 @@ const heroInfoGridStyle: CSSProperties = {
 const heroInfoCardStyle: CSSProperties = {
   borderRadius: 18,
   padding: 14,
-  background: 'rgba(255,255,255,0.84)',
-  border: '1px solid rgba(226,232,240,0.9)',
-  boxShadow: '0 8px 24px rgba(15, 23, 42, 0.04)',
+  background: 'var(--info-card-bg)',
+  border: '1px solid var(--info-card-border)',
+  boxShadow: 'var(--info-card-shadow)',
   textAlign: 'center',
 }
 
 const heroInfoLabelStyle: CSSProperties = {
   fontSize: 13,
   fontWeight: 700,
-  color: '#64748b',
+  color: 'var(--text-muted)',
 }
 
 const heroInfoValueStyle: CSSProperties = {
   marginTop: 6,
   fontSize: 24,
   fontWeight: 900,
-  color: '#0f172a',
+  color: 'var(--text-strong)',
 }
 
 const heroInfoTextStyle: CSSProperties = {
   marginTop: 6,
   fontSize: 16,
   fontWeight: 800,
-  color: '#0f172a',
+  color: 'var(--text-strong)',
 }
 
 const stateCardStyle: CSSProperties = {
   borderRadius: 22,
   padding: 20,
-  background: 'rgba(255,255,255,0.9)',
-  boxShadow: '0 14px 36px rgba(15, 23, 42, 0.06)',
+  background: 'var(--state-bg)',
+  boxShadow: 'var(--state-shadow)',
+  color: 'var(--text-main)',
   fontSize: 18,
 }
 
@@ -545,9 +659,9 @@ const cardStyle: CSSProperties = {
   gap: 16,
   borderRadius: 24,
   padding: 18,
-  background: 'linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(248,250,252,0.96) 100%)',
-  border: '1px solid rgba(226,232,240,0.9)',
-  boxShadow: '0 16px 42px rgba(15, 23, 42, 0.07)',
+  background: 'var(--card-bg)',
+  border: '1px solid var(--card-border)',
+  boxShadow: 'var(--card-shadow)',
 }
 
 const cardGlowStyle: CSSProperties = {
@@ -557,7 +671,7 @@ const cardGlowStyle: CSSProperties = {
   width: 160,
   height: 160,
   borderRadius: '50%',
-  background: 'radial-gradient(circle, rgba(125,211,252,0.22) 0%, rgba(125,211,252,0) 72%)',
+  background: 'var(--card-glow)',
   pointerEvents: 'none',
 }
 
@@ -576,7 +690,7 @@ const topMiniLabelStyle: CSSProperties = {
   fontSize: 12,
   fontWeight: 900,
   letterSpacing: 1,
-  color: '#64748b',
+  color: 'var(--text-muted)',
   textTransform: 'uppercase',
 }
 
@@ -584,7 +698,7 @@ const tripCodeStyle: CSSProperties = {
   fontSize: 30,
   lineHeight: 1,
   fontWeight: 900,
-  color: '#0f172a',
+  color: 'var(--text-strong)',
   textAlign: 'center',
 }
 
@@ -593,9 +707,9 @@ const datePanelStyle: CSSProperties = {
   gap: 6,
   padding: 18,
   borderRadius: 22,
-  background: 'linear-gradient(180deg, rgba(240,249,255,0.95) 0%, rgba(255,255,255,0.92) 100%)',
-  border: '1px solid #dbeafe',
-  boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.75)',
+  background: 'var(--date-panel-bg)',
+  border: '1px solid var(--date-panel-border)',
+  boxShadow: 'var(--date-panel-shadow)',
   textAlign: 'center',
 }
 
@@ -603,13 +717,13 @@ const datePanelDateStyle: CSSProperties = {
   fontSize: 28,
   lineHeight: 1.15,
   fontWeight: 900,
-  color: '#0f172a',
+  color: 'var(--text-strong)',
 }
 
 const datePanelMetaStyle: CSSProperties = {
   fontSize: 18,
   fontWeight: 700,
-  color: '#475569',
+  color: 'var(--text-secondary)',
 }
 
 const sectionStyle: CSSProperties = {
@@ -621,7 +735,7 @@ const sectionHeadingStyle: CSSProperties = {
   fontSize: 18,
   fontWeight: 900,
   textAlign: 'center',
-  color: '#0f172a',
+  color: 'var(--text-strong)',
 }
 
 const compactRowsGridStyle: CSSProperties = {
@@ -636,8 +750,8 @@ const apartmentRowStyle: CSSProperties = {
   gap: 14,
   padding: 16,
   borderRadius: 18,
-  background: 'rgba(248,250,252,0.96)',
-  border: '1px solid #e2e8f0',
+  background: 'var(--row-bg)',
+  border: '1px solid var(--row-border)',
   flexWrap: 'wrap',
 }
 
@@ -649,13 +763,13 @@ const apartmentRowLeftStyle: CSSProperties = {
 const apartmentLabelStyle: CSSProperties = {
   fontSize: 18,
   fontWeight: 800,
-  color: '#1e293b',
+  color: 'var(--text-strong)',
 }
 
 const apartmentPriceStyle: CSSProperties = {
   fontSize: 16,
   fontWeight: 700,
-  color: '#475569',
+  color: 'var(--text-secondary)',
 }
 
 const freeBadgeBaseStyle: CSSProperties = {
@@ -673,9 +787,9 @@ const freeBadgeBaseStyle: CSSProperties = {
 const noteStyle: CSSProperties = {
   padding: 14,
   borderRadius: 18,
-  background: '#fff7ed',
-  border: '1px solid #fed7aa',
-  color: '#9a3412',
+  background: 'var(--note-bg)',
+  border: '1px solid var(--note-border)',
+  color: 'var(--note-text)',
   fontSize: 14,
   lineHeight: 1.45,
 }
@@ -687,7 +801,7 @@ const fixedOrderBarStyle: CSSProperties = {
   bottom: 0,
   zIndex: 50,
   padding: '12px 14px calc(12px + env(safe-area-inset-bottom))',
-  background: 'linear-gradient(180deg, rgba(246,248,251,0) 0%, rgba(246,248,251,0.9) 32%, rgba(246,248,251,1) 100%)',
+  background: 'var(--fixed-bar-bg)',
   pointerEvents: 'none',
   boxSizing: 'border-box',
 }
@@ -711,7 +825,7 @@ const fixedOrderButtonStyle: CSSProperties = {
   fontWeight: 900,
   letterSpacing: 0.6,
   textTransform: 'uppercase',
-  boxShadow: '0 16px 34px rgba(15, 118, 110, 0.28)',
+  boxShadow: 'var(--button-shadow)',
   cursor: 'pointer',
   WebkitTapHighlightColor: 'transparent',
 }
