@@ -4,6 +4,7 @@ import PublicHomePage from './pages/PublicHomePage'
 import OrderPage from './pages/OrderPage'
 import AdminLoginPage from './pages/AdminLoginPage'
 import AdminDashboardPage from './pages/AdminDashboardPage'
+import AdminAccommodationSettingsPage from './pages/AdminAccommodationSettingsPage'
 import NotFoundPage from './pages/NotFoundPage'
 import { supabase } from './lib/supabase'
 
@@ -76,6 +77,11 @@ export default function App() {
         <Route
           path="/admin"
           element={isLoggedIn ? <AdminDashboardPage /> : <Navigate to="/admin/login" replace />}
+        />
+
+        <Route
+          path="/admin/nastavenia"
+          element={isLoggedIn ? <AdminAccommodationSettingsPage /> : <Navigate to="/admin/login" replace />}
         />
 
         <Route path="*" element={<NotFoundPage />} />

@@ -1,43 +1,13 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import type { AccommodationSettings } from '../types/accommodationSettings'
+import type { Departure } from '../types/departure'
 
 type ThemeStyleVars = CSSProperties & Record<`--${string}`, string>
-
-type Departure = {
-  id: string
-  trip_code: string
-  start_date: string
-  end_date: string
-  days_count: number
-  nights_count: number
-  price_double: number
-  price_triple: number
-  price_quad: number
-  bus_surcharge: number
-  double_total: number
-  triple_total: number
-  quad_total: number
-  double_occupied: number
-  triple_occupied: number
-  quad_occupied: number
-  published: boolean
-  sort_order: number | null
-  note: string | null
-}
-
 type OccupiedKey = 'double_occupied' | 'triple_occupied' | 'quad_occupied'
 type TotalKey = 'double_total' | 'triple_total' | 'quad_total'
-
-type ApartmentStepperProps = {
-  label: string
-  occupied: number
-  total: number
-  isSaving: boolean
-  onMinus: () => void
-  onPlus: () => void
-}
 
 function formatDate(dateIso: string): string {
   return new Date(dateIso).toLocaleDateString('sk-SK', {
@@ -66,7 +36,14 @@ function ApartmentStepper({
   isSaving,
   onMinus,
   onPlus,
-}: ApartmentStepperProps) {
+}: {
+  label: string
+  occupied: number
+  total: number
+  isSaving: boolean
+  onMinus: () => void
+  onPlus: () => void
+}) {
   const free = freeCount(total, occupied)
   const minusDisabled = occupied <= 0 || isSaving
   const plusDisabled = occupied >= total || isSaving
@@ -106,94 +83,102 @@ export default function AdminDashboardPage() {
   const navigate = useNavigate()
 
   const [departures, setDepartures] = useState<Departure[]>([])
+  const [settings, setSettings] = useState<AccommodationSettings | null>(null)
   const [loading, setLoading] = useState(true)
   const [loggingOut, setLoggingOut] = useState(false)
   const [savingMap, setSavingMap] = useState<Record<string, boolean>>({})
   const [errorText, setErrorText] = useState('')
   const [successText, setSuccessText] = useState('')
   const [isDarkMode, setIsDarkMode] = useState(() => {
-    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
-      return false
-    }
-
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false
     return window.matchMedia('(prefers-color-scheme: dark)').matches
   })
 
-  async function loadDepartures() {
+  async function loadData() {
     setErrorText('')
 
-    const { data, error } = await supabase
-      .from('departures')
-      .select(`
-        id,
-        trip_code,
-        start_date,
-        end_date,
-        days_count,
-        nights_count,
-        price_double,
-        price_triple,
-        price_quad,
-        bus_surcharge,
-        double_total,
-        triple_total,
-        quad_total,
-        double_occupied,
-        triple_occupied,
-        quad_occupied,
-        published,
-        sort_order,
-        note
-      `)
-      .order('sort_order', { ascending: true })
-      .order('start_date', { ascending: true })
+    const [departuresResult, settingsResult] = await Promise.all([
+      supabase
+        .from('departures')
+        .select(`
+          id,
+          trip_code,
+          start_date,
+          end_date,
+          days_count,
+          nights_count,
+          price_double,
+          price_triple,
+          price_quad,
+          bus_surcharge,
+          double_total,
+          triple_total,
+          quad_total,
+          double_occupied,
+          triple_occupied,
+          quad_occupied,
+          published,
+          sort_order,
+          note
+        `)
+        .order('sort_order', { ascending: true })
+        .order('start_date', { ascending: true }),
+      supabase
+        .from('accommodation_settings')
+        .select('id, double_total, triple_total, quad_total, updated_at')
+        .eq('id', 1)
+        .maybeSingle(),
+    ])
 
-    if (error) {
+    if (departuresResult.error) {
       setErrorText('Nepodarilo sa načítať termíny.')
       setDepartures([])
       setLoading(false)
       return
     }
 
-    setDepartures((data ?? []) as Departure[])
+    if (settingsResult.error) {
+      setErrorText('Nepodarilo sa načítať kapacity apartmánov.')
+      setDepartures([])
+      setLoading(false)
+      return
+    }
+
+    setDepartures((departuresResult.data ?? []) as Departure[])
+    setSettings((settingsResult.data as AccommodationSettings | null) ?? null)
     setLoading(false)
   }
 
   useEffect(() => {
     let alive = true
 
-    async function init() {
-      await loadDepartures()
-    }
+    loadData()
 
-    init()
-
-    const channel = supabase
+    const departuresChannel = supabase
       .channel('admin-departures-live')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'departures',
-        },
-        async () => {
-          if (!alive) return
-          await loadDepartures()
-        },
-      )
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'departures' }, async () => {
+        if (!alive) return
+        await loadData()
+      })
+      .subscribe()
+
+    const settingsChannel = supabase
+      .channel('admin-settings-live')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'accommodation_settings' }, async () => {
+        if (!alive) return
+        await loadData()
+      })
       .subscribe()
 
     return () => {
       alive = false
-      supabase.removeChannel(channel)
+      supabase.removeChannel(departuresChannel)
+      supabase.removeChannel(settingsChannel)
     }
   }, [])
 
   useEffect(() => {
-    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
-      return
-    }
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return
 
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
     const handleChange = (event: MediaQueryListEvent) => {
@@ -221,6 +206,15 @@ export default function AdminDashboardPage() {
     }
   }
 
+  const totals = useMemo(
+    () => ({
+      double_total: settings?.double_total ?? departures[0]?.double_total ?? 10,
+      triple_total: settings?.triple_total ?? departures[0]?.triple_total ?? 10,
+      quad_total: settings?.quad_total ?? departures[0]?.quad_total ?? 10,
+    }),
+    [settings, departures],
+  )
+
   async function handleAdjust(
     departureId: string,
     occupiedKey: OccupiedKey,
@@ -231,13 +225,12 @@ export default function AdminDashboardPage() {
     if (!item) return
 
     const currentValue = item[occupiedKey]
-    const totalValue = item[totalKey]
+    const totalValue = totals[totalKey]
     const nextValue = clamp(currentValue + delta, 0, totalValue)
 
     if (nextValue === currentValue) return
 
     const key = savingKey(departureId, occupiedKey)
-
     if (savingMap[key]) return
 
     setErrorText('')
@@ -245,9 +238,7 @@ export default function AdminDashboardPage() {
 
     setDepartures((prev) =>
       prev.map((departure) =>
-        departure.id === departureId
-          ? { ...departure, [occupiedKey]: nextValue }
-          : departure,
+        departure.id === departureId ? { ...departure, [occupiedKey]: nextValue } : departure,
       ),
     )
 
@@ -261,17 +252,13 @@ export default function AdminDashboardPage() {
     if (error) {
       setDepartures((prev) =>
         prev.map((departure) =>
-          departure.id === departureId
-            ? { ...departure, [occupiedKey]: currentValue }
-            : departure,
+          departure.id === departureId ? { ...departure, [occupiedKey]: currentValue } : departure,
         ),
       )
       setErrorText('Zmena sa neuložila. Skús ešte raz.')
     } else {
       setSuccessText('Zmena uložená.')
-      window.setTimeout(() => {
-        setSuccessText('')
-      }, 1400)
+      window.setTimeout(() => setSuccessText(''), 1400)
     }
 
     setSavingMap((prev) => ({ ...prev, [key]: false }))
@@ -289,14 +276,10 @@ export default function AdminDashboardPage() {
       ? 'linear-gradient(145deg, rgba(15,23,42,0.98) 0%, rgba(17,24,39,0.96) 100%)'
       : 'linear-gradient(145deg, rgba(255,255,255,0.98) 0%, rgba(241,245,249,0.96) 100%)',
     '--hero-border': isDarkMode ? 'rgba(71,85,105,0.72)' : '#e2e8f0',
-    '--hero-shadow': isDarkMode
-      ? '0 10px 26px rgba(0,0,0,0.30)'
-      : '0 10px 26px rgba(15,23,42,0.06)',
+    '--hero-shadow': isDarkMode ? '0 10px 26px rgba(0,0,0,0.30)' : '0 10px 26px rgba(15,23,42,0.06)',
     '--card-bg': isDarkMode ? '#0f172a' : '#ffffff',
     '--card-border': isDarkMode ? '#334155' : '#e2e8f0',
-    '--card-shadow': isDarkMode
-      ? '0 10px 26px rgba(0,0,0,0.26)'
-      : '0 10px 26px rgba(15,23,42,0.06)',
+    '--card-shadow': isDarkMode ? '0 10px 26px rgba(0,0,0,0.26)' : '0 10px 26px rgba(15,23,42,0.06)',
     '--soft-bg': isDarkMode ? '#111827' : '#f8fafc',
     '--soft-border': isDarkMode ? '#334155' : '#e2e8f0',
     '--pill-bg': isDarkMode ? '#0b1220' : '#eff6ff',
@@ -356,11 +339,15 @@ export default function AdminDashboardPage() {
               <div style={eyebrowStyle}>ADMIN</div>
               <h1 style={titleStyle}>Správa obsadenosti</h1>
               <p style={textStyle}>
-                Meníš len obsadené apartmány. Verejná stránka dopočíta voľné automaticky.
+                Meníš len obsadené apartmány. Globálne kapacity nastavíš na samostatnej obrazovke.
               </p>
             </div>
 
             <div style={actionsWrapStyle}>
+              <Link to="/admin/nastavenia" style={secondaryLinkButtonStyle}>
+                Nastavenie apartmánov
+              </Link>
+
               <Link to="/" style={secondaryLinkButtonStyle}>
                 Verejná stránka
               </Link>
@@ -404,7 +391,7 @@ export default function AdminDashboardPage() {
                     <ApartmentStepper
                       label="2-lôžkový apartmán"
                       occupied={item.double_occupied}
-                      total={item.double_total}
+                      total={totals.double_total}
                       isSaving={doubleSaving}
                       onMinus={() => handleAdjust(item.id, 'double_occupied', 'double_total', -1)}
                       onPlus={() => handleAdjust(item.id, 'double_occupied', 'double_total', 1)}
@@ -413,7 +400,7 @@ export default function AdminDashboardPage() {
                     <ApartmentStepper
                       label="3-lôžkový apartmán"
                       occupied={item.triple_occupied}
-                      total={item.triple_total}
+                      total={totals.triple_total}
                       isSaving={tripleSaving}
                       onMinus={() => handleAdjust(item.id, 'triple_occupied', 'triple_total', -1)}
                       onPlus={() => handleAdjust(item.id, 'triple_occupied', 'triple_total', 1)}
@@ -422,7 +409,7 @@ export default function AdminDashboardPage() {
                     <ApartmentStepper
                       label="4-lôžkový apartmán"
                       occupied={item.quad_occupied}
-                      total={item.quad_total}
+                      total={totals.quad_total}
                       isSaving={quadSaving}
                       onMinus={() => handleAdjust(item.id, 'quad_occupied', 'quad_total', -1)}
                       onPlus={() => handleAdjust(item.id, 'quad_occupied', 'quad_total', 1)}

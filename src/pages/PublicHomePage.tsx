@@ -2,38 +2,12 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import type { AccommodationSettings } from '../types/accommodationSettings'
+import type { Departure } from '../types/departure'
 
 type ThemeStyleVars = CSSProperties & Record<`--${string}`, string>
 
 const FALLBACK_BUS_SURCHARGE_PER_PERSON = 160
-
-type Departure = {
-  id: string
-  trip_code: string
-  start_date: string
-  end_date: string
-  days_count: number
-  nights_count: number
-  price_double: number
-  price_triple: number
-  price_quad: number
-  bus_surcharge: number
-  double_total: number
-  triple_total: number
-  quad_total: number
-  double_occupied: number
-  triple_occupied: number
-  quad_occupied: number
-  sort_order: number | null
-  note: string | null
-}
-
-type ApartmentCompactRowProps = {
-  label: string
-  price: number
-  free: number
-  total: number
-}
 
 function formatDate(dateIso: string): string {
   return new Date(dateIso).toLocaleDateString('sk-SK', {
@@ -55,33 +29,38 @@ function freeCount(total: number, occupied: number): number {
   return Math.max(0, total - occupied)
 }
 
-function freeBadgeStyle(free: number, total: number): CSSProperties {
+function ApartmentCompactRow({
+  label,
+  price,
+  free,
+  total,
+}: {
+  label: string
+  price: number
+  free: number
+  total: number
+}) {
   const ratio = total > 0 ? free / total : 0
 
-  if (ratio <= 0.2) {
-    return {
-      background: 'var(--badge-danger-bg)',
-      color: 'var(--badge-danger-text)',
-      border: '1px solid var(--badge-danger-border)',
-    }
-  }
+  const badgeStyle =
+    ratio <= 0.2
+      ? {
+          background: 'var(--badge-danger-bg)',
+          color: 'var(--badge-danger-text)',
+          border: '1px solid var(--badge-danger-border)',
+        }
+      : ratio <= 0.5
+        ? {
+            background: 'var(--badge-warn-bg)',
+            color: 'var(--badge-warn-text)',
+            border: '1px solid var(--badge-warn-border)',
+          }
+        : {
+            background: 'var(--badge-ok-bg)',
+            color: 'var(--badge-ok-text)',
+            border: '1px solid var(--badge-ok-border)',
+          }
 
-  if (ratio <= 0.5) {
-    return {
-      background: 'var(--badge-warn-bg)',
-      color: 'var(--badge-warn-text)',
-      border: '1px solid var(--badge-warn-border)',
-    }
-  }
-
-  return {
-    background: 'var(--badge-ok-bg)',
-    color: 'var(--badge-ok-text)',
-    border: '1px solid var(--badge-ok-border)',
-  }
-}
-
-function ApartmentCompactRow({ label, price, free, total }: ApartmentCompactRowProps) {
   return (
     <div style={apartmentRowStyle}>
       <div style={apartmentRowLeftStyle}>
@@ -89,7 +68,7 @@ function ApartmentCompactRow({ label, price, free, total }: ApartmentCompactRowP
         <div style={apartmentPriceStyle}>cena {formatPrice(price)}</div>
       </div>
 
-      <div style={{ ...freeBadgeBaseStyle, ...freeBadgeStyle(free, total) }}>
+      <div style={{ ...freeBadgeBaseStyle, ...badgeStyle }}>
         Voľné {free} z {total}
       </div>
     </div>
@@ -100,57 +79,71 @@ export default function PublicHomePage() {
   const navigate = useNavigate()
 
   const [departures, setDepartures] = useState<Departure[]>([])
+  const [settings, setSettings] = useState<AccommodationSettings | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [adminTarget, setAdminTarget] = useState('/admin/login')
   const [isDarkMode, setIsDarkMode] = useState(() => {
-    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
-      return false
-    }
-
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false
     return window.matchMedia('(prefers-color-scheme: dark)').matches
   })
 
   const adminTapCountRef = useRef(0)
   const adminTapTimerRef = useRef<number | null>(null)
 
-  async function loadDepartures() {
+  async function loadData() {
     setError(null)
 
-    const { data, error } = await supabase
-      .from('departures')
-      .select(`
-        id,
-        trip_code,
-        start_date,
-        end_date,
-        days_count,
-        nights_count,
-        price_double,
-        price_triple,
-        price_quad,
-        bus_surcharge,
-        double_total,
-        triple_total,
-        quad_total,
-        double_occupied,
-        triple_occupied,
-        quad_occupied,
-        sort_order,
-        note
-      `)
-      .eq('published', true)
-      .order('sort_order', { ascending: true })
-      .order('start_date', { ascending: true })
+    const [departuresResult, settingsResult] = await Promise.all([
+      supabase
+        .from('departures')
+        .select(`
+          id,
+          trip_code,
+          start_date,
+          end_date,
+          days_count,
+          nights_count,
+          price_double,
+          price_triple,
+          price_quad,
+          bus_surcharge,
+          double_total,
+          triple_total,
+          quad_total,
+          double_occupied,
+          triple_occupied,
+          quad_occupied,
+          published,
+          sort_order,
+          note
+        `)
+        .eq('published', true)
+        .order('sort_order', { ascending: true })
+        .order('start_date', { ascending: true }),
+      supabase
+        .from('accommodation_settings')
+        .select('id, double_total, triple_total, quad_total, updated_at')
+        .eq('id', 1)
+        .maybeSingle(),
+    ])
 
-    if (error) {
+    if (departuresResult.error) {
       setError('Nepodarilo sa načítať termíny.')
       setDepartures([])
       setLoading(false)
       return
     }
 
-    setDepartures((data ?? []) as Departure[])
+    if (settingsResult.error) {
+      setError('Nepodarilo sa načítať kapacity apartmánov.')
+      setDepartures([])
+      setLoading(false)
+      return
+    }
+
+    setDepartures((departuresResult.data ?? []) as Departure[])
+    setSettings((settingsResult.data as AccommodationSettings | null) ?? null)
     setLoading(false)
   }
 
@@ -180,10 +173,6 @@ export default function PublicHomePage() {
     window.location.href = url.toString()
   }
 
-  function handleOrderTripClick() {
-    navigate('/objednavka')
-  }
-
   useEffect(() => {
     let alive = true
 
@@ -194,25 +183,25 @@ export default function PublicHomePage() {
         setAdminTarget(data.session ? '/admin' : '/admin/login')
       }
 
-      await loadDepartures()
+      await loadData()
     }
 
     init()
 
     const departuresChannel = supabase
       .channel('public-departures-live')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'departures',
-        },
-        async () => {
-          if (!alive) return
-          await loadDepartures()
-        },
-      )
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'departures' }, async () => {
+        if (!alive) return
+        await loadData()
+      })
+      .subscribe()
+
+    const settingsChannel = supabase
+      .channel('public-settings-live')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'accommodation_settings' }, async () => {
+        if (!alive) return
+        await loadData()
+      })
       .subscribe()
 
     const {
@@ -226,17 +215,16 @@ export default function PublicHomePage() {
       alive = false
       authSubscription.unsubscribe()
       supabase.removeChannel(departuresChannel)
+      supabase.removeChannel(settingsChannel)
 
       if (adminTapTimerRef.current) {
         window.clearTimeout(adminTapTimerRef.current)
       }
     }
-  }, [navigate])
+  }, [adminTarget, navigate])
 
   useEffect(() => {
-    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
-      return
-    }
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return
 
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
     const handleChange = (event: MediaQueryListEvent) => {
@@ -254,97 +242,27 @@ export default function PublicHomePage() {
     return () => mediaQuery.removeListener(handleChange)
   }, [])
 
-  const busSurchargePerPerson = useMemo(() => {
-    const firstValue = departures.find((item) => typeof item.bus_surcharge === 'number')?.bus_surcharge
-    return firstValue ?? FALLBACK_BUS_SURCHARGE_PER_PERSON
-  }, [departures])
+  const busSurchargePerPerson = useMemo(
+    () =>
+      departures.find((item) => typeof item.bus_surcharge === 'number')?.bus_surcharge ??
+      FALLBACK_BUS_SURCHARGE_PER_PERSON,
+    [departures],
+  )
 
-  const content = useMemo(() => {
-    if (loading) {
-      return <div style={stateCardStyle}>Načítavam termíny...</div>
-    }
-
-    if (error) {
-      return <div style={{ ...stateCardStyle, color: 'var(--danger-text)' }}>{error}</div>
-    }
-
-    if (departures.length === 0) {
-      return <div style={stateCardStyle}>Momentálne nie sú dostupné žiadne termíny.</div>
-    }
-
-    return (
-      <div style={cardsGridStyle}>
-        {departures.map((item) => {
-          const freeDouble = freeCount(item.double_total, item.double_occupied)
-          const freeTriple = freeCount(item.triple_total, item.triple_occupied)
-          const freeQuad = freeCount(item.quad_total, item.quad_occupied)
-
-          return (
-            <article key={item.id} style={cardStyle}>
-              <div style={cardGlowStyle} />
-
-              <div style={cardHeaderStyle}>
-                <div style={tripHeaderBoxStyle}>
-                  <div style={topMiniLabelStyle}>ZÁJAZD</div>
-                  <div style={tripCodeStyle}>{item.trip_code}</div>
-                </div>
-
-                <div style={datePanelStyle}>
-                  <div style={topMiniLabelStyle}>TERMÍN</div>
-                  <div style={datePanelDateStyle}>
-                    {formatDate(item.start_date)} – {formatDate(item.end_date)}
-                  </div>
-                  <div style={datePanelMetaStyle}>
-                    {item.days_count} dní / {item.nights_count} nocí
-                  </div>
-                </div>
-              </div>
-
-              <div style={sectionStyle}>
-                <div style={sectionHeadingStyle}>Voľné apartmány</div>
-
-                <div style={compactRowsGridStyle}>
-                  <ApartmentCompactRow
-                    label="Dvojlôžkový"
-                    price={item.price_double}
-                    free={freeDouble}
-                    total={item.double_total}
-                  />
-
-                  <ApartmentCompactRow
-                    label="Trojlôžkový"
-                    price={item.price_triple}
-                    free={freeTriple}
-                    total={item.triple_total}
-                  />
-
-                  <ApartmentCompactRow
-                    label="Štvorlôžkový"
-                    price={item.price_quad}
-                    free={freeQuad}
-                    total={item.quad_total}
-                  />
-                </div>
-              </div>
-
-              {item.note && item.note.trim().length > 0 ? (
-                <div style={noteStyle}>
-                  <strong>Poznámka:</strong> {item.note}
-                </div>
-              ) : null}
-            </article>
-          )
-        })}
-      </div>
-    )
-  }, [departures, error, loading])
+  const totals = useMemo(
+    () => ({
+      double_total: settings?.double_total ?? departures[0]?.double_total ?? 10,
+      triple_total: settings?.triple_total ?? departures[0]?.triple_total ?? 10,
+      quad_total: settings?.quad_total ?? departures[0]?.quad_total ?? 10,
+    }),
+    [settings, departures],
+  )
 
   const themeVars: ThemeStyleVars = {
     '--page-bg': isDarkMode
       ? 'linear-gradient(180deg, #020617 0%, #0f172a 24%, #111827 100%)'
       : 'linear-gradient(180deg, #e8f4ff 0%, #f4f8fc 24%, #f6f8fb 100%)',
     '--text-main': isDarkMode ? '#f8fafc' : '#0f172a',
-    '--text-strong': isDarkMode ? '#ffffff' : '#0f172a',
     '--text-secondary': isDarkMode ? '#cbd5e1' : '#475569',
     '--text-muted': isDarkMode ? '#94a3b8' : '#64748b',
     '--hero-card-bg': isDarkMode
@@ -377,9 +295,6 @@ export default function PublicHomePage() {
       ? 'linear-gradient(180deg, rgba(8,47,73,0.86) 0%, rgba(15,23,42,0.9) 100%)'
       : 'linear-gradient(180deg, rgba(240,249,255,0.95) 0%, rgba(255,255,255,0.92) 100%)',
     '--date-panel-border': isDarkMode ? '#155e75' : '#dbeafe',
-    '--date-panel-shadow': isDarkMode
-      ? 'inset 0 1px 0 rgba(186,230,253,0.08)'
-      : 'inset 0 1px 0 rgba(255,255,255,0.75)',
     '--row-bg': isDarkMode ? 'rgba(11,18,32,0.92)' : 'rgba(248,250,252,0.96)',
     '--row-border': isDarkMode ? '#334155' : '#e2e8f0',
     '--note-bg': isDarkMode ? '#3b2412' : '#fff7ed',
@@ -407,10 +322,78 @@ export default function PublicHomePage() {
     '--orb-bottom': isDarkMode
       ? 'radial-gradient(circle, rgba(45,212,191,0.14) 0%, rgba(45,212,191,0) 72%)'
       : 'radial-gradient(circle, rgba(16,185,129,0.16) 0%, rgba(16,185,129,0) 72%)',
-    '--card-glow': isDarkMode
-      ? 'radial-gradient(circle, rgba(45,212,191,0.16) 0%, rgba(45,212,191,0) 72%)'
-      : 'radial-gradient(circle, rgba(125,211,252,0.22) 0%, rgba(125,211,252,0) 72%)',
   }
+
+  const content =
+    loading ? (
+      <div style={stateCardStyle}>Načítavam termíny...</div>
+    ) : error ? (
+      <div style={{ ...stateCardStyle, color: 'var(--danger-text)' }}>{error}</div>
+    ) : departures.length === 0 ? (
+      <div style={stateCardStyle}>Momentálne nie sú dostupné žiadne termíny.</div>
+    ) : (
+      <div style={cardsGridStyle}>
+        {departures.map((item) => {
+          const freeDouble = freeCount(totals.double_total, item.double_occupied)
+          const freeTriple = freeCount(totals.triple_total, item.triple_occupied)
+          const freeQuad = freeCount(totals.quad_total, item.quad_occupied)
+
+          return (
+            <article key={item.id} style={cardStyle}>
+              <div style={cardHeaderStyle}>
+                <div style={tripHeaderBoxStyle}>
+                  <div style={topMiniLabelStyle}>ZÁJAZD</div>
+                  <div style={tripCodeStyle}>{item.trip_code}</div>
+                </div>
+
+                <div style={datePanelStyle}>
+                  <div style={topMiniLabelStyle}>TERMÍN</div>
+                  <div style={datePanelDateStyle}>
+                    {formatDate(item.start_date)} – {formatDate(item.end_date)}
+                  </div>
+                  <div style={datePanelMetaStyle}>
+                    {item.days_count} dní / {item.nights_count} nocí
+                  </div>
+                </div>
+              </div>
+
+              <div style={sectionStyle}>
+                <div style={sectionHeadingStyle}>Voľné apartmány</div>
+
+                <div style={compactRowsGridStyle}>
+                  <ApartmentCompactRow
+                    label="Dvojlôžkový"
+                    price={item.price_double}
+                    free={freeDouble}
+                    total={totals.double_total}
+                  />
+
+                  <ApartmentCompactRow
+                    label="Trojlôžkový"
+                    price={item.price_triple}
+                    free={freeTriple}
+                    total={totals.triple_total}
+                  />
+
+                  <ApartmentCompactRow
+                    label="Štvorlôžkový"
+                    price={item.price_quad}
+                    free={freeQuad}
+                    total={totals.quad_total}
+                  />
+                </div>
+              </div>
+
+              {item.note && item.note.trim().length > 0 ? (
+                <div style={noteStyle}>
+                  <strong>Poznámka:</strong> {item.note}
+                </div>
+              ) : null}
+            </article>
+          )
+        })}
+      </div>
+    )
 
   return (
     <main
@@ -438,9 +421,7 @@ export default function PublicHomePage() {
 
             <h1 style={titleStyle}>EL GRECO TOUR</h1>
 
-            <p style={topInfoPrimaryStyle}>
-              Grécko, Katerini Paralia, Pavlou Mela 18
-            </p>
+            <p style={topInfoPrimaryStyle}>Grécko, Katerini Paralia, Pavlou Mela 18</p>
 
             <p style={topInfoSecondaryStyle}>
               Prehľad voľných termínov a cien apartmánov
@@ -465,7 +446,7 @@ export default function PublicHomePage() {
 
       <div style={fixedOrderBarStyle}>
         <div style={fixedOrderBarInnerStyle}>
-          <button type="button" style={fixedOrderButtonStyle} onClick={handleOrderTripClick}>
+          <button type="button" style={fixedOrderButtonStyle} onClick={() => navigate('/objednavka')}>
             OBJEDNAŤ ZÁJAZD
           </button>
         </div>
@@ -555,23 +536,7 @@ const secretHeroTagStyle: CSSProperties = {
   WebkitTapHighlightColor: 'transparent',
 }
 
-const refreshHeroTagStyle: CSSProperties = {
-  display: 'inline-flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  minHeight: 30,
-  padding: '0 12px',
-  borderRadius: 999,
-  fontSize: 12,
-  fontWeight: 800,
-  letterSpacing: 0.2,
-  color: 'var(--tag-text)',
-  background: 'var(--tag-bg)',
-  border: '1px solid var(--tag-border)',
-  cursor: 'pointer',
-  userSelect: 'none',
-  WebkitTapHighlightColor: 'transparent',
-}
+const refreshHeroTagStyle = secretHeroTagStyle
 
 const titleStyle: CSSProperties = {
   margin: 0,
@@ -580,11 +545,7 @@ const titleStyle: CSSProperties = {
   lineHeight: 1.1,
   fontWeight: 900,
   letterSpacing: 0.2,
-  color: 'var(--text-strong)',
-  opacity: 1,
-  position: 'relative',
-  zIndex: 1,
-  textShadow: '0 1px 0 rgba(255,255,255,0.08)',
+  color: 'var(--text-main)',
 }
 
 const topInfoPrimaryStyle: CSSProperties = {
@@ -592,7 +553,7 @@ const topInfoPrimaryStyle: CSSProperties = {
   textAlign: 'center',
   fontSize: 16,
   fontWeight: 800,
-  color: 'var(--text-strong)',
+  color: 'var(--text-main)',
 }
 
 const topInfoSecondaryStyle: CSSProperties = {
@@ -628,14 +589,14 @@ const heroInfoValueStyle: CSSProperties = {
   marginTop: 6,
   fontSize: 24,
   fontWeight: 900,
-  color: 'var(--text-strong)',
+  color: 'var(--text-main)',
 }
 
 const heroInfoTextStyle: CSSProperties = {
   marginTop: 6,
   fontSize: 16,
   fontWeight: 800,
-  color: 'var(--text-strong)',
+  color: 'var(--text-main)',
 }
 
 const stateCardStyle: CSSProperties = {
@@ -664,17 +625,6 @@ const cardStyle: CSSProperties = {
   boxShadow: 'var(--card-shadow)',
 }
 
-const cardGlowStyle: CSSProperties = {
-  position: 'absolute',
-  top: -60,
-  right: -40,
-  width: 160,
-  height: 160,
-  borderRadius: '50%',
-  background: 'var(--card-glow)',
-  pointerEvents: 'none',
-}
-
 const cardHeaderStyle: CSSProperties = {
   display: 'grid',
   gap: 14,
@@ -698,7 +648,7 @@ const tripCodeStyle: CSSProperties = {
   fontSize: 30,
   lineHeight: 1,
   fontWeight: 900,
-  color: 'var(--text-strong)',
+  color: 'var(--text-main)',
   textAlign: 'center',
 }
 
@@ -709,7 +659,6 @@ const datePanelStyle: CSSProperties = {
   borderRadius: 22,
   background: 'var(--date-panel-bg)',
   border: '1px solid var(--date-panel-border)',
-  boxShadow: 'var(--date-panel-shadow)',
   textAlign: 'center',
 }
 
@@ -717,7 +666,7 @@ const datePanelDateStyle: CSSProperties = {
   fontSize: 28,
   lineHeight: 1.15,
   fontWeight: 900,
-  color: 'var(--text-strong)',
+  color: 'var(--text-main)',
 }
 
 const datePanelMetaStyle: CSSProperties = {
@@ -735,7 +684,7 @@ const sectionHeadingStyle: CSSProperties = {
   fontSize: 18,
   fontWeight: 900,
   textAlign: 'center',
-  color: 'var(--text-strong)',
+  color: 'var(--text-main)',
 }
 
 const compactRowsGridStyle: CSSProperties = {
@@ -763,7 +712,7 @@ const apartmentRowLeftStyle: CSSProperties = {
 const apartmentLabelStyle: CSSProperties = {
   fontSize: 18,
   fontWeight: 800,
-  color: 'var(--text-strong)',
+  color: 'var(--text-main)',
 }
 
 const apartmentPriceStyle: CSSProperties = {
