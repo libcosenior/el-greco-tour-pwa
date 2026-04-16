@@ -3,6 +3,8 @@ import type { CSSProperties } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 
+type ThemeStyleVars = CSSProperties & Record<`--${string}`, string>
+
 type Departure = {
   id: string
   trip_code: string
@@ -73,6 +75,7 @@ function ApartmentStepper({
     <section style={stepperCardStyle}>
       <div style={stepperHeaderStyle}>
         <div style={stepperLabelStyle}>{label}</div>
+
         <div style={stepperTopInfoStyle}>
           <span>Obsadené</span>
           <strong>{occupied}</strong>
@@ -108,6 +111,13 @@ export default function AdminDashboardPage() {
   const [savingMap, setSavingMap] = useState<Record<string, boolean>>({})
   const [errorText, setErrorText] = useState('')
   const [successText, setSuccessText] = useState('')
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+      return false
+    }
+
+    return window.matchMedia('(prefers-color-scheme: dark)').matches
+  })
 
   async function loadDepartures() {
     setErrorText('')
@@ -180,6 +190,27 @@ export default function AdminDashboardPage() {
     }
   }, [])
 
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+      return
+    }
+
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
+    const handleChange = (event: MediaQueryListEvent) => {
+      setIsDarkMode(event.matches)
+    }
+
+    setIsDarkMode(mediaQuery.matches)
+
+    if (typeof mediaQuery.addEventListener === 'function') {
+      mediaQuery.addEventListener('change', handleChange)
+      return () => mediaQuery.removeEventListener('change', handleChange)
+    }
+
+    mediaQuery.addListener(handleChange)
+    return () => mediaQuery.removeListener(handleChange)
+  }, [])
+
   async function handleLogout() {
     try {
       setLoggingOut(true)
@@ -246,16 +277,78 @@ export default function AdminDashboardPage() {
     setSavingMap((prev) => ({ ...prev, [key]: false }))
   }
 
+  const themeVars: ThemeStyleVars = {
+    '--page-bg': isDarkMode
+      ? 'linear-gradient(180deg, #020617 0%, #0f172a 24%, #111827 100%)'
+      : 'linear-gradient(180deg, #eef4fb 0%, #f8fafc 100%)',
+    '--text-main': isDarkMode ? '#e5eef7' : '#0f172a',
+    '--text-strong': isDarkMode ? '#ffffff' : '#0f172a',
+    '--text-secondary': isDarkMode ? '#cbd5e1' : '#475569',
+    '--text-muted': isDarkMode ? '#94a3b8' : '#64748b',
+    '--hero-bg': isDarkMode
+      ? 'linear-gradient(145deg, rgba(15,23,42,0.98) 0%, rgba(17,24,39,0.96) 100%)'
+      : 'linear-gradient(145deg, rgba(255,255,255,0.98) 0%, rgba(241,245,249,0.96) 100%)',
+    '--hero-border': isDarkMode ? 'rgba(71,85,105,0.72)' : '#e2e8f0',
+    '--hero-shadow': isDarkMode
+      ? '0 10px 26px rgba(0,0,0,0.30)'
+      : '0 10px 26px rgba(15,23,42,0.06)',
+    '--card-bg': isDarkMode ? '#0f172a' : '#ffffff',
+    '--card-border': isDarkMode ? '#334155' : '#e2e8f0',
+    '--card-shadow': isDarkMode
+      ? '0 10px 26px rgba(0,0,0,0.26)'
+      : '0 10px 26px rgba(15,23,42,0.06)',
+    '--soft-bg': isDarkMode ? '#111827' : '#f8fafc',
+    '--soft-border': isDarkMode ? '#334155' : '#e2e8f0',
+    '--pill-bg': isDarkMode ? '#0b1220' : '#eff6ff',
+    '--pill-border': isDarkMode ? '#1d4ed8' : '#bfdbfe',
+    '--pill-text': isDarkMode ? '#93c5fd' : '#1d4ed8',
+    '--date-bg': isDarkMode ? '#0b1220' : '#f8fafc',
+    '--date-border': isDarkMode ? '#334155' : '#e2e8f0',
+    '--date-text': isDarkMode ? '#ffffff' : '#0f172a',
+    '--button-dark': isDarkMode ? '#1e293b' : '#0f172a',
+    '--button-dark-disabled': isDarkMode ? '#334155' : '#cbd5e1',
+    '--button-dark-text': '#ffffff',
+    '--count-bg': isDarkMode ? '#0b1220' : '#ffffff',
+    '--count-border': isDarkMode ? '#475569' : '#cbd5e1',
+    '--count-text': isDarkMode ? '#ffffff' : '#0f172a',
+    '--free-bg': isDarkMode ? '#082f49' : '#eff6ff',
+    '--free-border': isDarkMode ? '#155e75' : '#bfdbfe',
+    '--free-text': isDarkMode ? '#bae6fd' : '#1e3a8a',
+    '--saving-text': isDarkMode ? '#67e8f9' : '#1d4ed8',
+    '--danger-bg': isDarkMode ? '#3f1d1d' : '#fef2f2',
+    '--danger-text': isDarkMode ? '#fca5a5' : '#b91c1c',
+    '--success-bg': isDarkMode ? '#052e16' : '#f0fdf4',
+    '--success-text': isDarkMode ? '#86efac' : '#166534',
+    '--note-bg': isDarkMode ? '#3b2412' : '#fff7ed',
+    '--note-border': isDarkMode ? '#9a3412' : '#fed7aa',
+    '--note-text': isDarkMode ? '#fdba74' : '#9a3412',
+    '--secondary-link-bg': isDarkMode ? '#0b1220' : '#ffffff',
+    '--secondary-link-border': isDarkMode ? '#475569' : '#cbd5e1',
+    '--secondary-link-text': isDarkMode ? '#93c5fd' : '#1d4ed8',
+  }
+
   if (loading) {
     return (
-      <main style={loadingPageStyle}>
+      <main
+        style={{
+          ...themeVars,
+          ...loadingPageStyle,
+          colorScheme: isDarkMode ? 'dark' : 'light',
+        }}
+      >
         Načítavam admin termíny...
       </main>
     )
   }
 
   return (
-    <main style={pageStyle}>
+    <main
+      style={{
+        ...themeVars,
+        ...pageStyle,
+        colorScheme: isDarkMode ? 'dark' : 'light',
+      }}
+    >
       <div style={containerStyle}>
         <section style={heroCardStyle}>
           <div style={heroTopRowStyle}>
@@ -300,6 +393,7 @@ export default function AdminDashboardPage() {
                       <div style={dateStyle}>
                         {formatDate(item.start_date)} – {formatDate(item.end_date)}
                       </div>
+
                       <div style={metaStyle}>
                         {item.days_count} dní / {item.nights_count} nocí
                       </div>
@@ -352,7 +446,8 @@ export default function AdminDashboardPage() {
 
 const pageStyle: CSSProperties = {
   minHeight: '100vh',
-  background: 'linear-gradient(180deg, #eef4fb 0%, #f8fafc 100%)',
+  background: 'var(--page-bg)',
+  color: 'var(--text-main)',
   fontFamily: 'Arial, sans-serif',
   padding: '14px 10px 28px',
   boxSizing: 'border-box',
@@ -363,10 +458,10 @@ const loadingPageStyle: CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  background: '#f8fafc',
+  background: 'var(--page-bg)',
+  color: 'var(--text-secondary)',
   fontFamily: 'Arial, sans-serif',
   fontSize: 20,
-  color: '#475569',
 }
 
 const containerStyle: CSSProperties = {
@@ -376,11 +471,11 @@ const containerStyle: CSSProperties = {
 }
 
 const heroCardStyle: CSSProperties = {
-  background: 'linear-gradient(145deg, rgba(255,255,255,0.98) 0%, rgba(241,245,249,0.96) 100%)',
-  border: '1px solid #e2e8f0',
+  background: 'var(--hero-bg)',
+  border: '1px solid var(--hero-border)',
   borderRadius: 22,
   padding: 16,
-  boxShadow: '0 10px 26px rgba(15,23,42,0.06)',
+  boxShadow: 'var(--hero-shadow)',
   marginBottom: 14,
 }
 
@@ -402,7 +497,7 @@ const eyebrowStyle: CSSProperties = {
   fontSize: 11,
   fontWeight: 900,
   letterSpacing: 1.1,
-  color: '#64748b',
+  color: 'var(--text-muted)',
   textTransform: 'uppercase',
 }
 
@@ -410,14 +505,14 @@ const titleStyle: CSSProperties = {
   margin: 0,
   fontSize: 28,
   lineHeight: 1.05,
-  color: '#0f172a',
+  color: 'var(--text-strong)',
 }
 
 const textStyle: CSSProperties = {
   margin: 0,
   fontSize: 15,
   lineHeight: 1.45,
-  color: '#475569',
+  color: 'var(--text-secondary)',
 }
 
 const actionsWrapStyle: CSSProperties = {
@@ -432,8 +527,8 @@ const logoutButtonStyle: CSSProperties = {
   padding: '0 16px',
   borderRadius: 12,
   border: 'none',
-  background: '#0f172a',
-  color: '#ffffff',
+  background: 'var(--button-dark)',
+  color: 'var(--button-dark-text)',
   fontSize: 15,
   fontWeight: 800,
   cursor: 'pointer',
@@ -443,9 +538,9 @@ const secondaryLinkButtonStyle: CSSProperties = {
   minHeight: 42,
   padding: '0 16px',
   borderRadius: 12,
-  border: '1px solid #cbd5e1',
-  background: '#ffffff',
-  color: '#1d4ed8',
+  border: '1px solid var(--secondary-link-border)',
+  background: 'var(--secondary-link-bg)',
+  color: 'var(--secondary-link-text)',
   fontSize: 15,
   fontWeight: 800,
   textDecoration: 'none',
@@ -458,8 +553,8 @@ const secondaryLinkButtonStyle: CSSProperties = {
 const errorStyle: CSSProperties = {
   borderRadius: 14,
   padding: '11px 13px',
-  background: '#fef2f2',
-  color: '#b91c1c',
+  background: 'var(--danger-bg)',
+  color: 'var(--danger-text)',
   fontSize: 14,
   fontWeight: 800,
   marginBottom: 12,
@@ -468,8 +563,8 @@ const errorStyle: CSSProperties = {
 const successStyle: CSSProperties = {
   borderRadius: 14,
   padding: '11px 13px',
-  background: '#f0fdf4',
-  color: '#166534',
+  background: 'var(--success-bg)',
+  color: 'var(--success-text)',
   fontSize: 14,
   fontWeight: 800,
   marginBottom: 12,
@@ -478,11 +573,11 @@ const successStyle: CSSProperties = {
 const emptyCardStyle: CSSProperties = {
   borderRadius: 18,
   padding: 18,
-  background: '#ffffff',
-  border: '1px solid #e2e8f0',
-  boxShadow: '0 10px 26px rgba(15,23,42,0.06)',
+  background: 'var(--card-bg)',
+  border: '1px solid var(--card-border)',
+  boxShadow: 'var(--card-shadow)',
   fontSize: 16,
-  color: '#475569',
+  color: 'var(--text-secondary)',
 }
 
 const cardsGridStyle: CSSProperties = {
@@ -491,11 +586,11 @@ const cardsGridStyle: CSSProperties = {
 }
 
 const cardStyle: CSSProperties = {
-  background: '#ffffff',
+  background: 'var(--card-bg)',
   borderRadius: 20,
   padding: 14,
-  border: '1px solid #e2e8f0',
-  boxShadow: '0 10px 26px rgba(15,23,42,0.06)',
+  border: '1px solid var(--card-border)',
+  boxShadow: 'var(--card-shadow)',
   display: 'grid',
   gap: 14,
 }
@@ -513,9 +608,9 @@ const tripCodePillStyle: CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
   justifyContent: 'center',
-  background: '#eff6ff',
-  border: '1px solid #bfdbfe',
-  color: '#1d4ed8',
+  background: 'var(--pill-bg)',
+  border: '1px solid var(--pill-border)',
+  color: 'var(--pill-text)',
   fontSize: 22,
   fontWeight: 900,
   lineHeight: 1,
@@ -526,14 +621,14 @@ const datePanelStyle: CSSProperties = {
   gap: 4,
   padding: 12,
   borderRadius: 16,
-  background: '#f8fafc',
-  border: '1px solid #e2e8f0',
+  background: 'var(--date-bg)',
+  border: '1px solid var(--date-border)',
 }
 
 const dateStyle: CSSProperties = {
   fontSize: 20,
   fontWeight: 900,
-  color: '#0f172a',
+  color: 'var(--date-text)',
   lineHeight: 1.2,
   textAlign: 'center',
 }
@@ -541,7 +636,7 @@ const dateStyle: CSSProperties = {
 const metaStyle: CSSProperties = {
   fontSize: 15,
   fontWeight: 700,
-  color: '#475569',
+  color: 'var(--text-secondary)',
   textAlign: 'center',
 }
 
@@ -556,8 +651,8 @@ const stepperCardStyle: CSSProperties = {
   gap: 10,
   padding: 12,
   borderRadius: 16,
-  background: '#f8fafc',
-  border: '1px solid #e2e8f0',
+  background: 'var(--soft-bg)',
+  border: '1px solid var(--soft-border)',
 }
 
 const stepperHeaderStyle: CSSProperties = {
@@ -569,7 +664,7 @@ const stepperLabelStyle: CSSProperties = {
   fontSize: 17,
   lineHeight: 1.2,
   fontWeight: 800,
-  color: '#0f172a',
+  color: 'var(--text-strong)',
 }
 
 const stepperTopInfoStyle: CSSProperties = {
@@ -578,7 +673,7 @@ const stepperTopInfoStyle: CSSProperties = {
   alignItems: 'center',
   gap: 12,
   fontSize: 14,
-  color: '#475569',
+  color: 'var(--text-secondary)',
 }
 
 const stepperRowStyle: CSSProperties = {
@@ -594,8 +689,8 @@ const stepperButtonStyle = (disabled: boolean): CSSProperties => ({
   height: 52,
   borderRadius: 14,
   border: 'none',
-  background: disabled ? '#cbd5e1' : '#0f172a',
-  color: '#ffffff',
+  background: disabled ? 'var(--button-dark-disabled)' : 'var(--button-dark)',
+  color: 'var(--button-dark-text)',
   fontSize: 30,
   fontWeight: 900,
   lineHeight: 1,
@@ -607,14 +702,14 @@ const countBoxStyle: CSSProperties = {
   minWidth: 68,
   height: 52,
   borderRadius: 14,
-  background: '#ffffff',
-  border: '1px solid #cbd5e1',
+  background: 'var(--count-bg)',
+  border: '1px solid var(--count-border)',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
   fontSize: 28,
   fontWeight: 900,
-  color: '#0f172a',
+  color: 'var(--count-text)',
   flex: '1 1 auto',
 }
 
@@ -633,25 +728,25 @@ const freeBadgeStyle: CSSProperties = {
   minHeight: 30,
   padding: '0 10px',
   borderRadius: 999,
-  background: '#eff6ff',
-  border: '1px solid #bfdbfe',
-  color: '#1e3a8a',
+  background: 'var(--free-bg)',
+  border: '1px solid var(--free-border)',
+  color: 'var(--free-text)',
   fontSize: 13,
   fontWeight: 800,
 }
 
 const savingTextStyle: CSSProperties = {
   fontSize: 13,
-  color: '#1d4ed8',
+  color: 'var(--saving-text)',
   fontWeight: 800,
 }
 
 const noteStyle: CSSProperties = {
   borderRadius: 14,
   padding: '12px 14px',
-  background: '#fff7ed',
-  border: '1px solid #fed7aa',
-  color: '#9a3412',
+  background: 'var(--note-bg)',
+  border: '1px solid var(--note-border)',
+  color: 'var(--note-text)',
   fontSize: 14,
   lineHeight: 1.45,
 }
