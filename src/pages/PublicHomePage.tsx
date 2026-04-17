@@ -7,6 +7,11 @@ import type { Departure } from '../types/departure'
 
 type ThemeStyleVars = CSSProperties & Record<`--${string}`, string>
 
+type BeforeInstallPromptEvent = Event & {
+  prompt: () => Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>
+  userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>
+}
+
 const FALLBACK_BUS_SURCHARGE_PER_PERSON = 160
 
 function formatDate(dateIso: string): string {
@@ -27,6 +32,14 @@ function formatPrice(value: number): string {
 
 function freeCount(total: number, occupied: number): number {
   return Math.max(0, total - occupied)
+}
+
+function isStandaloneMode(): boolean {
+  if (typeof window === 'undefined') return false
+
+  const navigatorWithStandalone = window.navigator as Navigator & { standalone?: boolean }
+
+  return window.matchMedia('(display-mode: standalone)').matches || navigatorWithStandalone.standalone === true
 }
 
 function ApartmentCompactRow({
@@ -87,6 +100,8 @@ export default function PublicHomePage() {
     if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false
     return window.matchMedia('(prefers-color-scheme: dark)').matches
   })
+  const [installPromptEvent, setInstallPromptEvent] = useState<BeforeInstallPromptEvent | null>(null)
+  const [isInstalled, setIsInstalled] = useState(() => isStandaloneMode())
 
   const adminTapCountRef = useRef(0)
   const adminTapTimerRef = useRef<number | null>(null)
@@ -173,6 +188,17 @@ export default function PublicHomePage() {
     window.location.href = url.toString()
   }
 
+  async function handleInstallTap() {
+    if (installPromptEvent) {
+      const promptEvent = installPromptEvent
+      setInstallPromptEvent(null)
+      await promptEvent.prompt()
+      return
+    }
+
+    window.alert('Ak sa natívne tlačidlo Install nezobrazí, otvor stránku v prehliadači a zvoľ Pridať na plochu alebo Install app.')
+  }
+
   useEffect(() => {
     let alive = true
 
@@ -221,7 +247,7 @@ export default function PublicHomePage() {
         window.clearTimeout(adminTapTimerRef.current)
       }
     }
-  }, [adminTarget, navigate])
+  }, [navigate])
 
   useEffect(() => {
     if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return
@@ -240,6 +266,48 @@ export default function PublicHomePage() {
 
     mediaQuery.addListener(handleChange)
     return () => mediaQuery.removeListener(handleChange)
+  }, [])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+
+    const standaloneMediaQuery = window.matchMedia('(display-mode: standalone)')
+
+    const handleBeforeInstallPrompt = (event: Event) => {
+      event.preventDefault()
+      setInstallPromptEvent(event as BeforeInstallPromptEvent)
+    }
+
+    const handleAppInstalled = () => {
+      setInstallPromptEvent(null)
+      setIsInstalled(true)
+    }
+
+    const handleStandaloneChange = (event: MediaQueryListEvent) => {
+      setIsInstalled(event.matches)
+    }
+
+    setIsInstalled(isStandaloneMode())
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
+    window.addEventListener('appinstalled', handleAppInstalled)
+
+    if (typeof standaloneMediaQuery.addEventListener === 'function') {
+      standaloneMediaQuery.addEventListener('change', handleStandaloneChange)
+    } else {
+      standaloneMediaQuery.addListener(handleStandaloneChange)
+    }
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
+      window.removeEventListener('appinstalled', handleAppInstalled)
+
+      if (typeof standaloneMediaQuery.addEventListener === 'function') {
+        standaloneMediaQuery.removeEventListener('change', handleStandaloneChange)
+      } else {
+        standaloneMediaQuery.removeListener(handleStandaloneChange)
+      }
+    }
   }, [])
 
   const busSurchargePerPerson = useMemo(
@@ -414,6 +482,12 @@ export default function PublicHomePage() {
                 Aktualizovať
               </span>
 
+              {!isInstalled ? (
+                <button type="button" style={installHeroTagStyle} onClick={handleInstallTap}>
+                  Install
+                </button>
+              ) : null}
+
               <span style={secretHeroTagStyle} onClick={handleAdminSecretTap}>
                 CK EL GRECO TOUR
               </span>
@@ -537,6 +611,15 @@ const secretHeroTagStyle: CSSProperties = {
 }
 
 const refreshHeroTagStyle = secretHeroTagStyle
+
+const installHeroTagStyle: CSSProperties = {
+  ...secretHeroTagStyle,
+  appearance: 'none',
+  WebkitAppearance: 'none',
+  border: '1px solid #14b8a6',
+  color: '#ffffff',
+  background: 'linear-gradient(135deg, #0f766e 0%, #14b8a6 100%)',
+}
 
 const titleStyle: CSSProperties = {
   margin: 0,

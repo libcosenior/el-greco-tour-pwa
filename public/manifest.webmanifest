@@ -1,0 +1,20 @@
+{
+  "name": "CK EL GRECO TOUR",
+  "short_name": "EL GRECO TOUR",
+  "description": "Prehľad voľných termínov a cien apartmánov pre CK EL GRECO TOUR.",
+  "lang": "sk",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f6f8fb",
+  "theme_color": "#0f766e",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
