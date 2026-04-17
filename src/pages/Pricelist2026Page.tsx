@@ -4,32 +4,10 @@ import { useNavigate } from 'react-router-dom'
 
 type ThemeStyleVars = CSSProperties & Record<`--${string}`, string>
 
-type PricelistRow = {
-  tripCode: string
-  term: string
-  daysNights: string
-  priceDouble: number
-  priceTriple: number
-  priceQuad: number
-}
-
 type BoardingPoint = {
   place: string
   time: string
 }
-
-const PRICELIST_ROWS: PricelistRow[] = [
-  { tripCode: '01x', term: '24.5. – 10.6.', daysNights: '18 / 15', priceDouble: 320, priceTriple: 360, priceQuad: 406 },
-  { tripCode: '02', term: '08.6. – 24.6.', daysNights: '17 / 14', priceDouble: 350, priceTriple: 370, priceQuad: 406 },
-  { tripCode: '03', term: '22.6. – 08.7.', daysNights: '17 / 14', priceDouble: 440, priceTriple: 460, priceQuad: 518 },
-  { tripCode: '04', term: '06.7. – 22.7.', daysNights: '17 / 14', priceDouble: 560, priceTriple: 600, priceQuad: 658 },
-  { tripCode: '05', term: '20.7. – 05.8.', daysNights: '17 / 14', priceDouble: 560, priceTriple: 600, priceQuad: 658 },
-  { tripCode: '06', term: '03.8. – 17.8.', daysNights: '15 / 12', priceDouble: 560, priceTriple: 600, priceQuad: 658 },
-  { tripCode: '07', term: '15.8. – 29.8.', daysNights: '15 / 12', priceDouble: 490, priceTriple: 560, priceQuad: 616 },
-  { tripCode: '08', term: '27.8. – 10.9.', daysNights: '15 / 12', priceDouble: 370, priceTriple: 392, priceQuad: 448 },
-  { tripCode: '09', term: '08.9. – 22.9.', daysNights: '15 / 12', priceDouble: 350, priceTriple: 370, priceQuad: 420 },
-  { tripCode: '10', term: '20.9. – 06.10.', daysNights: '17 / 14', priceDouble: 350, priceTriple: 370, priceQuad: 420 },
-]
 
 const INCLUDED_ITEMS = [
   'ubytovanie podľa počtu nocí za apartmán',
@@ -77,50 +55,6 @@ const BOARDING_POINTS: BoardingPoint[] = [
   { place: 'Veľký Meder – benz. pumpa Slovnaft na začiatku mesta', time: '10:00' },
   { place: 'Komárno – benz. pumpa HOFFER na začiatku mesta', time: '10:40' },
 ]
-
-function formatPrice(value: number): string {
-  return new Intl.NumberFormat('sk-SK', {
-    style: 'currency',
-    currency: 'EUR',
-    maximumFractionDigits: 0,
-  }).format(value)
-}
-
-function PriceCard({ row }: { row: PricelistRow }) {
-  return (
-    <article style={priceCardStyle}>
-      <div style={priceCardTopStyle}>
-        <div style={priceTripBoxStyle}>
-          <div style={miniLabelStyle}>Zájazd</div>
-          <div style={priceTripCodeStyle}>{row.tripCode}</div>
-        </div>
-
-        <div style={priceTermBoxStyle}>
-          <div style={miniLabelStyle}>Termín</div>
-          <div style={priceTermStyle}>{row.term}</div>
-          <div style={priceMetaStyle}>{row.daysNights} dní / nocí</div>
-        </div>
-      </div>
-
-      <div style={priceRowsWrapStyle}>
-        <div style={priceRowStyle}>
-          <span style={priceLabelStyle}>Dvojlôžkový apartmán</span>
-          <strong style={priceValueStyle}>{formatPrice(row.priceDouble)}</strong>
-        </div>
-
-        <div style={priceRowStyle}>
-          <span style={priceLabelStyle}>Trojlôžkový apartmán</span>
-          <strong style={priceValueStyle}>{formatPrice(row.priceTriple)}</strong>
-        </div>
-
-        <div style={priceRowStyle}>
-          <span style={priceLabelStyle}>Štvorlôžkový apartmán</span>
-          <strong style={priceValueStyle}>{formatPrice(row.priceQuad)}</strong>
-        </div>
-      </div>
-    </article>
-  )
-}
 
 export default function Pricelist2026Page() {
   const navigate = useNavigate()
@@ -209,7 +143,7 @@ export default function Pricelist2026Page() {
 
         <header style={heroStyle}>
           <div style={heroEyebrowStyle}>CK EL GRECO TOUR</div>
-          <h1 style={heroTitleStyle}>Cenník 2026</h1>
+          <h1 style={heroTitleStyle}>Informácie o zájazde</h1>
           <p style={heroSubtitleStyle}>
             Katerini – Paralia, rušné letovisko na Olympskej riviére v okrese Pieria
           </p>
@@ -240,19 +174,6 @@ export default function Pricelist2026Page() {
         <section style={noteCardStyle}>
           Cena je uvedená za celý apartmán podľa typu a počtu nocí. Vlastná doprava je viazaná
           na autobusové termíny.
-        </section>
-
-        <section style={sectionStyle}>
-          <div style={sectionHeaderStyle}>
-            <div style={sectionEyebrowStyle}>Termíny a ceny</div>
-            <h2 style={sectionTitleStyle}>Prehľad zájazdov 2026</h2>
-          </div>
-
-          <div style={pricesGridStyle}>
-            {PRICELIST_ROWS.map((row) => (
-              <PriceCard key={row.tripCode} row={row} />
-            ))}
-          </div>
         </section>
 
         <section style={twoColumnSectionStyle}>
@@ -528,100 +449,6 @@ const sectionTitleStyle: CSSProperties = {
   lineHeight: 1.1,
   fontWeight: 900,
   color: 'var(--text-main)',
-}
-
-const pricesGridStyle: CSSProperties = {
-  display: 'grid',
-  gap: 14,
-  gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-}
-
-const priceCardStyle: CSSProperties = {
-  display: 'grid',
-  gap: 14,
-  padding: 18,
-  borderRadius: 24,
-  background: 'var(--card-bg)',
-  border: '1px solid var(--card-border)',
-  boxShadow: 'var(--card-shadow)',
-}
-
-const priceCardTopStyle: CSSProperties = {
-  display: 'grid',
-  gap: 12,
-}
-
-const priceTripBoxStyle: CSSProperties = {
-  display: 'grid',
-  gap: 4,
-  justifyItems: 'center',
-}
-
-const miniLabelStyle: CSSProperties = {
-  fontSize: 12,
-  fontWeight: 900,
-  letterSpacing: 1,
-  textTransform: 'uppercase',
-  color: 'var(--text-muted)',
-}
-
-const priceTripCodeStyle: CSSProperties = {
-  fontSize: 30,
-  lineHeight: 1,
-  fontWeight: 900,
-  color: 'var(--text-main)',
-}
-
-const priceTermBoxStyle: CSSProperties = {
-  display: 'grid',
-  gap: 6,
-  padding: 16,
-  borderRadius: 20,
-  background: 'var(--highlight-bg)',
-  border: '1px solid var(--highlight-border)',
-  textAlign: 'center',
-}
-
-const priceTermStyle: CSSProperties = {
-  fontSize: 24,
-  lineHeight: 1.15,
-  fontWeight: 900,
-  color: 'var(--text-main)',
-}
-
-const priceMetaStyle: CSSProperties = {
-  fontSize: 16,
-  fontWeight: 700,
-  color: 'var(--text-secondary)',
-}
-
-const priceRowsWrapStyle: CSSProperties = {
-  display: 'grid',
-  gap: 10,
-}
-
-const priceRowStyle: CSSProperties = {
-  display: 'flex',
-  justifyContent: 'space-between',
-  alignItems: 'center',
-  gap: 12,
-  padding: 14,
-  borderRadius: 16,
-  background: 'var(--panel-bg)',
-  border: '1px solid var(--panel-border)',
-  flexWrap: 'wrap',
-}
-
-const priceLabelStyle: CSSProperties = {
-  fontSize: 15,
-  fontWeight: 800,
-  color: 'var(--text-main)',
-}
-
-const priceValueStyle: CSSProperties = {
-  fontSize: 18,
-  fontWeight: 900,
-  color: 'var(--accent)',
 }
 
 const twoColumnSectionStyle: CSSProperties = {

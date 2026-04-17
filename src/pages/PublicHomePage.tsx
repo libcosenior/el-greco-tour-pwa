@@ -541,7 +541,7 @@ export default function PublicHomePage() {
 						
 						<div style={heroActionsWrapStyle}>
 							<button type="button" style={heroSecondaryButtonStyle} onClick={() => navigate('/cennik-2026')}>
-								Pozrieť cenník 2026
+								Pozrieť informácie o zájazde
 							</button>
 						</div>
 
