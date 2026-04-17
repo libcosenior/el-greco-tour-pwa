@@ -42,6 +42,16 @@ function isStandaloneMode(): boolean {
   return window.matchMedia('(display-mode: standalone)').matches || navigatorWithStandalone.standalone === true
 }
 
+function isAppleMobileDevice(): boolean {
+  if (typeof window === 'undefined') return false
+
+  const userAgent = window.navigator.userAgent
+  const isClassicIos = /iPhone|iPad|iPod/i.test(userAgent)
+  const isIpadDesktopMode = window.navigator.platform === 'MacIntel' && window.navigator.maxTouchPoints > 1
+
+  return isClassicIos || isIpadDesktopMode
+}
+
 function ApartmentCompactRow({
   label,
   price,
@@ -102,6 +112,7 @@ export default function PublicHomePage() {
   })
   const [installPromptEvent, setInstallPromptEvent] = useState<BeforeInstallPromptEvent | null>(null)
   const [isInstalled, setIsInstalled] = useState(() => isStandaloneMode())
+  const [showIosInstallHelp, setShowIosInstallHelp] = useState(false)
 
   const adminTapCountRef = useRef(0)
   const adminTapTimerRef = useRef<number | null>(null)
@@ -196,6 +207,11 @@ export default function PublicHomePage() {
       return
     }
 
+    if (isAppleMobileDevice() && !isInstalled) {
+      setShowIosInstallHelp(true)
+      return
+    }
+
     window.alert('Ak sa natívne tlačidlo Install nezobrazí, otvor stránku v prehliadači a zvoľ Pridať na plochu alebo Install app.')
   }
 
@@ -281,10 +297,14 @@ export default function PublicHomePage() {
     const handleAppInstalled = () => {
       setInstallPromptEvent(null)
       setIsInstalled(true)
+      setShowIosInstallHelp(false)
     }
 
     const handleStandaloneChange = (event: MediaQueryListEvent) => {
       setIsInstalled(event.matches)
+      if (event.matches) {
+        setShowIosInstallHelp(false)
+      }
     }
 
     setIsInstalled(isStandaloneMode())
@@ -390,6 +410,14 @@ export default function PublicHomePage() {
     '--orb-bottom': isDarkMode
       ? 'radial-gradient(circle, rgba(45,212,191,0.14) 0%, rgba(45,212,191,0) 72%)'
       : 'radial-gradient(circle, rgba(16,185,129,0.16) 0%, rgba(16,185,129,0) 72%)',
+    '--modal-backdrop': isDarkMode ? 'rgba(2, 6, 23, 0.72)' : 'rgba(15, 23, 42, 0.38)',
+    '--modal-bg': isDarkMode ? 'rgba(15,23,42,0.98)' : 'rgba(255,255,255,0.98)',
+    '--modal-border': isDarkMode ? 'rgba(71,85,105,0.72)' : 'rgba(226,232,240,0.92)',
+    '--modal-shadow': isDarkMode
+      ? '0 24px 60px rgba(0, 0, 0, 0.44)'
+      : '0 24px 60px rgba(15, 23, 42, 0.20)',
+    '--step-bg': isDarkMode ? 'rgba(11,18,32,0.92)' : 'rgba(248,250,252,0.96)',
+    '--step-border': isDarkMode ? '#334155' : '#e2e8f0',
   }
 
   const content =
@@ -497,9 +525,7 @@ export default function PublicHomePage() {
 
             <p style={topInfoPrimaryStyle}>Grécko, Katerini Paralia, Pavlou Mela 18</p>
 
-            <p style={topInfoSecondaryStyle}>
-              Prehľad voľných termínov a cien apartmánov
-            </p>
+            <p style={topInfoSecondaryStyle}>Prehľad voľných termínov a cien apartmánov</p>
 
             <div style={heroInfoGridStyle}>
               <div style={heroInfoCardStyle}>
@@ -512,11 +538,62 @@ export default function PublicHomePage() {
                 <div style={heroInfoTextStyle}>Ceny sú uvedené za apartmán</div>
               </div>
             </div>
+						
+						<div style={heroActionsWrapStyle}>
+							<button type="button" style={heroSecondaryButtonStyle} onClick={() => navigate('/cennik-2026')}>
+								Pozrieť cenník 2026
+							</button>
+						</div>
+
           </section>
         </header>
 
         {content}
       </div>
+
+      {showIosInstallHelp ? (
+        <div style={iosHelpBackdropStyle} onClick={() => setShowIosInstallHelp(false)}>
+          <div style={iosHelpCardStyle} onClick={(event) => event.stopPropagation()}>
+            <div style={iosHelpEyebrowStyle}>IPHONE / IPAD</div>
+            <h2 style={iosHelpTitleStyle}>Ako nainštalovať appku</h2>
+            <p style={iosHelpTextStyle}>
+              Na Apple zariadení sa appka pridáva cez Safari na plochu.
+            </p>
+
+            <div style={iosStepsGridStyle}>
+              <div style={iosStepCardStyle}>
+                <div style={iosStepNumberStyle}>1</div>
+                <div style={iosStepTextStyle}>Otvor túto stránku v prehliadači Safari.</div>
+              </div>
+
+              <div style={iosStepCardStyle}>
+                <div style={iosStepNumberStyle}>2</div>
+                <div style={iosStepTextStyle}>Dole alebo hore ťukni na Zdieľať.</div>
+              </div>
+
+              <div style={iosStepCardStyle}>
+                <div style={iosStepNumberStyle}>3</div>
+                <div style={iosStepTextStyle}>Vyber „Pridať na plochu“.</div>
+              </div>
+
+              <div style={iosStepCardStyle}>
+                <div style={iosStepNumberStyle}>4</div>
+                <div style={iosStepTextStyle}>Potvrď názov a pridanie.</div>
+              </div>
+            </div>
+
+            <div style={iosHelpNoteStyle}>
+              Potom sa bude appka otvárať z plochy bez bežného vrchu prehliadača.
+            </div>
+
+            <div style={iosHelpActionsStyle}>
+              <button type="button" style={iosHelpCloseButtonStyle} onClick={() => setShowIosInstallHelp(false)}>
+                Zavrieť
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       <div style={fixedOrderBarStyle}>
         <div style={fixedOrderBarInnerStyle}>
@@ -682,6 +759,24 @@ const heroInfoTextStyle: CSSProperties = {
   color: 'var(--text-main)',
 }
 
+const heroActionsWrapStyle: CSSProperties = {
+  display: 'flex',
+  justifyContent: 'center',
+  marginTop: 4,
+}
+
+const heroSecondaryButtonStyle: CSSProperties = {
+  minHeight: 48,
+  borderRadius: 16,
+  padding: '0 18px',
+  border: '1px solid var(--card-border)',
+  background: 'var(--info-card-bg)',
+  color: 'var(--text-main)',
+  fontSize: 15,
+  fontWeight: 900,
+  cursor: 'pointer',
+}
+
 const stateCardStyle: CSSProperties = {
   borderRadius: 22,
   padding: 20,
@@ -824,6 +919,120 @@ const noteStyle: CSSProperties = {
   color: 'var(--note-text)',
   fontSize: 14,
   lineHeight: 1.45,
+}
+
+const iosHelpBackdropStyle: CSSProperties = {
+  position: 'fixed',
+  inset: 0,
+  zIndex: 90,
+  display: 'grid',
+  placeItems: 'center',
+  padding: 16,
+  background: 'var(--modal-backdrop)',
+  backdropFilter: 'blur(4px)',
+}
+
+const iosHelpCardStyle: CSSProperties = {
+  width: '100%',
+  maxWidth: 520,
+  display: 'grid',
+  gap: 14,
+  borderRadius: 26,
+  padding: 20,
+  background: 'var(--modal-bg)',
+  border: '1px solid var(--modal-border)',
+  boxShadow: 'var(--modal-shadow)',
+}
+
+const iosHelpEyebrowStyle: CSSProperties = {
+  fontSize: 12,
+  fontWeight: 900,
+  letterSpacing: 1,
+  textTransform: 'uppercase',
+  color: 'var(--text-muted)',
+  textAlign: 'center',
+}
+
+const iosHelpTitleStyle: CSSProperties = {
+  margin: 0,
+  fontSize: 28,
+  lineHeight: 1.1,
+  fontWeight: 900,
+  textAlign: 'center',
+  color: 'var(--text-main)',
+}
+
+const iosHelpTextStyle: CSSProperties = {
+  margin: 0,
+  fontSize: 15,
+  lineHeight: 1.5,
+  fontWeight: 600,
+  textAlign: 'center',
+  color: 'var(--text-secondary)',
+}
+
+const iosStepsGridStyle: CSSProperties = {
+  display: 'grid',
+  gap: 10,
+}
+
+const iosStepCardStyle: CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: '42px 1fr',
+  alignItems: 'center',
+  gap: 12,
+  padding: 14,
+  borderRadius: 18,
+  background: 'var(--step-bg)',
+  border: '1px solid var(--step-border)',
+}
+
+const iosStepNumberStyle: CSSProperties = {
+  width: 42,
+  height: 42,
+  borderRadius: '50%',
+  display: 'grid',
+  placeItems: 'center',
+  fontSize: 18,
+  fontWeight: 900,
+  color: '#ffffff',
+  background: 'linear-gradient(135deg, #0f766e 0%, #14b8a6 100%)',
+}
+
+const iosStepTextStyle: CSSProperties = {
+  fontSize: 15,
+  lineHeight: 1.45,
+  fontWeight: 800,
+  color: 'var(--text-main)',
+}
+
+const iosHelpNoteStyle: CSSProperties = {
+  padding: 14,
+  borderRadius: 16,
+  background: 'var(--info-card-bg)',
+  border: '1px solid var(--info-card-border)',
+  color: 'var(--text-main)',
+  fontSize: 14,
+  lineHeight: 1.45,
+  fontWeight: 700,
+  textAlign: 'center',
+}
+
+const iosHelpActionsStyle: CSSProperties = {
+  display: 'grid',
+}
+
+const iosHelpCloseButtonStyle: CSSProperties = {
+  minHeight: 52,
+  border: 'none',
+  borderRadius: 18,
+  background: 'linear-gradient(135deg, #0f766e 0%, #14b8a6 55%, #2dd4bf 100%)',
+  color: '#ffffff',
+  fontSize: 16,
+  fontWeight: 900,
+  letterSpacing: 0.3,
+  cursor: 'pointer',
+  boxShadow: 'var(--button-shadow)',
 }
 
 const fixedOrderBarStyle: CSSProperties = {

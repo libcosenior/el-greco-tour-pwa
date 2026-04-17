@@ -6,6 +6,7 @@ import AdminLoginPage from './pages/AdminLoginPage'
 import AdminDashboardPage from './pages/AdminDashboardPage'
 import AdminAccommodationSettingsPage from './pages/AdminAccommodationSettingsPage'
 import NotFoundPage from './pages/NotFoundPage'
+import Pricelist2026Page from './pages/Pricelist2026Page'
 import { supabase } from './lib/supabase'
 import { isUserAdmin } from './lib/adminAccess'
 
@@ -83,6 +84,7 @@ export default function App() {
       <Routes>
         <Route path="/" element={<PublicHomePage />} />
         <Route path="/objednavka" element={<OrderPage />} />
+				<Route path="/cennik-2026" element={<Pricelist2026Page />} />
 
         <Route
           path="/admin/login"
