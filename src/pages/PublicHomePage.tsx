@@ -766,15 +766,16 @@ const heroActionsWrapStyle: CSSProperties = {
 }
 
 const heroSecondaryButtonStyle: CSSProperties = {
-  minHeight: 48,
+  minHeight: 50,
   borderRadius: 16,
   padding: '0 18px',
-  border: '1px solid var(--card-border)',
-  background: 'var(--info-card-bg)',
+  border: '1px solid rgba(20, 184, 166, 0.34)',
+  background: 'linear-gradient(135deg, rgba(15, 118, 110, 0.10) 0%, rgba(45, 212, 191, 0.12) 100%)',
   color: 'var(--text-main)',
   fontSize: 15,
   fontWeight: 900,
   cursor: 'pointer',
+  boxShadow: '0 10px 24px rgba(15, 118, 110, 0.10)',
 }
 
 const stateCardStyle: CSSProperties = {
