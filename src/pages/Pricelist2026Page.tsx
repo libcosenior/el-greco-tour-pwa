@@ -173,7 +173,7 @@ export default function Pricelist2026Page() {
 
         <section style={noteCardStyle}>
           Cena je uvedená za celý apartmán podľa typu a počtu nocí. Vlastná doprava je viazaná
-          na autobusové termíny.
+          na autobusové termíny. Termíny a konkrétne ceny sú na verejnej stránke.
         </section>
 
         <section style={twoColumnSectionStyle}>
