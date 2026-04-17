@@ -13,6 +13,9 @@ export type OrderFormValues = {
   children: number
   childrenAge0to6: number
   childrenAge7to15: number
+  doubleApartments: number
+  tripleApartments: number
+  quadApartments: number
   note: string
 }
 
@@ -30,6 +33,9 @@ export function createInitialOrderForm(): OrderFormValues {
     children: 0,
     childrenAge0to6: 0,
     childrenAge7to15: 0,
+    doubleApartments: 0,
+    tripleApartments: 0,
+    quadApartments: 0,
     note: '',
   }
 }

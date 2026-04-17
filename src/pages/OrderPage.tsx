@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { CSSProperties, FormEvent } from 'react'
-type ThemeStyleVars = CSSProperties & Record<`--${string}`, string>
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { BOARDING_STOPS } from '../features/order/orderConstants'
 import { buildOrderMailtoUrl, formatTripDateRange } from '../features/order/orderMail'
 import { createInitialOrderForm, type OrderFormValues, type TransportType } from '../features/order/orderTypes'
+
+type ThemeStyleVars = CSSProperties & Record<`--${string}`, string>
 
 const CK_ORDER_EMAIL = import.meta.env.VITE_CK_ORDER_EMAIL ?? ''
 
@@ -16,6 +17,12 @@ type DepartureOption = {
   end_date: string
   days_count: number
   nights_count: number
+  double_total: number
+  triple_total: number
+  quad_total: number
+  double_occupied: number
+  triple_occupied: number
+  quad_occupied: number
 }
 
 type CounterCardProps = {
@@ -23,21 +30,74 @@ type CounterCardProps = {
   value: number
   onMinus: () => void
   onPlus: () => void
+  disableMinus?: boolean
+  disablePlus?: boolean
 }
 
-function CounterCard({ label, value, onMinus, onPlus }: CounterCardProps) {
+type ApartmentSelectorCardProps = {
+  label: string
+  selectedCount: number
+  freeCount: number
+  bedsPerApartment: number
+  onToggle: () => void
+  onMinus: () => void
+  onPlus: () => void
+}
+
+function CounterCard({ label, value, onMinus, onPlus, disableMinus = false, disablePlus = false }: CounterCardProps) {
   return (
     <div style={counterCardStyle}>
       <div style={counterLabelStyle}>{label}</div>
 
       <div style={counterControlsStyle}>
-        <button type="button" style={counterButtonStyle} onClick={onMinus}>
+        <button type="button" style={{ ...counterButtonStyle, ...(disableMinus ? disabledCounterButtonStyle : undefined) }} onClick={onMinus} disabled={disableMinus}>
           −
         </button>
 
         <div style={counterValueStyle}>{value}</div>
 
-        <button type="button" style={counterButtonStyle} onClick={onPlus}>
+        <button type="button" style={{ ...counterButtonStyle, ...(disablePlus ? disabledCounterButtonStyle : undefined) }} onClick={onPlus} disabled={disablePlus}>
+          +
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function ApartmentSelectorCard({ label, selectedCount, freeCount, bedsPerApartment, onToggle, onMinus, onPlus }: ApartmentSelectorCardProps) {
+  const isSelected = selectedCount > 0
+  const isDisabled = freeCount <= 0
+
+  return (
+    <div style={{ ...apartmentCardStyle, ...(isSelected ? selectedApartmentCardStyle : undefined), ...(isDisabled ? disabledApartmentCardStyle : undefined) }}>
+      <button type="button" style={{ ...apartmentToggleStyle, ...(isDisabled ? disabledToggleButtonStyle : undefined) }} onClick={onToggle} disabled={isDisabled}>
+        <span style={choiceCheckboxStyle}>{isSelected ? '☒' : '☐'}</span>
+        <span>{label}</span>
+      </button>
+
+      <div style={apartmentMetaStyle}>
+        <span>Voľné: {freeCount}</span>
+        <span>{bedsPerApartment} lôžka</span>
+      </div>
+
+      <div style={counterControlsStyle}>
+        <button
+          type="button"
+          style={{ ...counterButtonStyle, ...(selectedCount <= 0 ? disabledCounterButtonStyle : undefined) }}
+          onClick={onMinus}
+          disabled={selectedCount <= 0}
+        >
+          −
+        </button>
+
+        <div style={counterValueStyle}>{selectedCount}</div>
+
+        <button
+          type="button"
+          style={{ ...counterButtonStyle, ...(isDisabled || selectedCount >= freeCount ? disabledCounterButtonStyle : undefined) }}
+          onClick={onPlus}
+          disabled={isDisabled || selectedCount >= freeCount}
+        >
           +
         </button>
       </div>
@@ -73,6 +133,30 @@ function formatBirthDateInput(value: string): string {
   return `${digits.slice(0, 2)}.${digits.slice(2, 4)}.${digits.slice(4)}`
 }
 
+function getFreeApartmentCounts(departure: DepartureOption | null) {
+  if (!departure) {
+    return {
+      freeDouble: 0,
+      freeTriple: 0,
+      freeQuad: 0,
+    }
+  }
+
+  return {
+    freeDouble: Math.max(0, departure.double_total - departure.double_occupied),
+    freeTriple: Math.max(0, departure.triple_total - departure.triple_occupied),
+    freeQuad: Math.max(0, departure.quad_total - departure.quad_occupied),
+  }
+}
+
+function getSelectedApartmentsCount(form: OrderFormValues): number {
+  return form.doubleApartments + form.tripleApartments + form.quadApartments
+}
+
+function getSelectedBedsCount(form: OrderFormValues): number {
+  return form.doubleApartments * 2 + form.tripleApartments * 3 + form.quadApartments * 4
+}
+
 export default function OrderPage() {
   const navigate = useNavigate()
 
@@ -100,7 +184,13 @@ export default function OrderPage() {
         start_date,
         end_date,
         days_count,
-        nights_count
+        nights_count,
+        double_total,
+        triple_total,
+        quad_total,
+        double_occupied,
+        triple_occupied,
+        quad_occupied
       `)
       .eq('published', true)
       .order('sort_order', { ascending: true })
@@ -175,6 +265,30 @@ export default function OrderPage() {
     })
   }
 
+  function toggleApartment(field: 'doubleApartments' | 'tripleApartments' | 'quadApartments', freeCount: number) {
+    setForm((prev) => {
+      if (freeCount <= 0) {
+        return prev
+      }
+
+      return {
+        ...prev,
+        [field]: prev[field] > 0 ? 0 : 1,
+      }
+    })
+  }
+
+  function adjustApartment(field: 'doubleApartments' | 'tripleApartments' | 'quadApartments', delta: number, freeCount: number) {
+    setForm((prev) => {
+      const nextValue = Math.max(0, Math.min(freeCount, prev[field] + delta))
+
+      return {
+        ...prev,
+        [field]: nextValue,
+      }
+    })
+  }
+
   function validateForm(selectedDeparture: DepartureOption | null): string | null {
     if (!CK_ORDER_EMAIL || CK_ORDER_EMAIL === 'SEM_DAJ_EMAIL_CK') {
       return 'Najprv doplň VITE_CK_ORDER_EMAIL do .env súboru.'
@@ -189,35 +303,61 @@ export default function OrderPage() {
     }
 
     if (!form.birthDate.trim()) {
-			return 'Vyplň dátum narodenia.'
-		}
+      return 'Vyplň dátum narodenia.'
+    }
 
-		if (!/^\d{2}\.\d{2}\.\d{4}$/.test(form.birthDate.trim())) {
-			return 'Dátum narodenia zadaj vo formáte DD.MM.RRRR.'
-		}
+    if (!/^\d{2}\.\d{2}\.\d{4}$/.test(form.birthDate.trim())) {
+      return 'Dátum narodenia zadaj vo formáte DD.MM.RRRR.'
+    }
 
     if (!form.permanentResidence.trim()) {
       return 'Vyplň trvalý pobyt.'
     }
 
     if (!form.mobile.trim()) {
-			return 'Vyplň mobil.'
-		}
+      return 'Vyplň mobil.'
+    }
 
-		if (!form.email.trim()) {
-			return 'Vyplň email.'
-		}
+    if (!form.email.trim()) {
+      return 'Vyplň email.'
+    }
 
-		if (!form.transport) {
-			return 'Vyber dopravu.'
-		}
+    if (!form.transport) {
+      return 'Vyber dopravu.'
+    }
 
     if (form.transport === 'bus' && !form.boardingStopId) {
       return 'Vyber nástupnú zastávku.'
     }
 
-    if (form.adults + form.children <= 0) {
+    const totalPeople = form.adults + form.children
+
+    if (totalPeople <= 0) {
       return 'Zadaj aspoň jedného člena zájazdu.'
+    }
+
+    const { freeDouble, freeTriple, freeQuad } = getFreeApartmentCounts(selectedDeparture)
+    const selectedApartments = getSelectedApartmentsCount(form)
+    const selectedBeds = getSelectedBedsCount(form)
+
+    if (selectedApartments <= 0) {
+      return 'Vyber aspoň jeden apartmán.'
+    }
+
+    if (form.doubleApartments > freeDouble) {
+      return 'Počet dvojlôžkových apartmánov je vyšší ako aktuálne voľná kapacita.'
+    }
+
+    if (form.tripleApartments > freeTriple) {
+      return 'Počet trojlôžkových apartmánov je vyšší ako aktuálne voľná kapacita.'
+    }
+
+    if (form.quadApartments > freeQuad) {
+      return 'Počet štvorlôžkových apartmánov je vyšší ako aktuálne voľná kapacita.'
+    }
+
+    if (selectedBeds < totalPeople) {
+      return 'Vybraný počet lôžok musí pokryť všetkých členov zájazdu.'
     }
 
     return null
@@ -277,47 +417,64 @@ export default function OrderPage() {
     return departures.find((item) => item.id === form.departureId) ?? null
   }, [departures, form.departureId])
 
+  const { freeDouble, freeTriple, freeQuad } = useMemo(() => getFreeApartmentCounts(selectedDeparture), [selectedDeparture])
+  const selectedBeds = useMemo(() => getSelectedBedsCount(form), [form])
+  const totalPeople = useMemo(() => form.adults + form.children, [form.adults, form.children])
+
+  useEffect(() => {
+    setForm((prev) => {
+      const nextDouble = Math.min(prev.doubleApartments, freeDouble)
+      const nextTriple = Math.min(prev.tripleApartments, freeTriple)
+      const nextQuad = Math.min(prev.quadApartments, freeQuad)
+
+      if (nextDouble === prev.doubleApartments && nextTriple === prev.tripleApartments && nextQuad === prev.quadApartments) {
+        return prev
+      }
+
+      return {
+        ...prev,
+        doubleApartments: nextDouble,
+        tripleApartments: nextTriple,
+        quadApartments: nextQuad,
+      }
+    })
+  }, [freeDouble, freeTriple, freeQuad])
+
   const themeVars: ThemeStyleVars = {
-  '--page-bg': isDarkMode
-    ? 'linear-gradient(180deg, #020617 0%, #0f172a 24%, #111827 100%)'
-    : 'linear-gradient(180deg, #e8f4ff 0%, #f4f8fc 24%, #f6f8fb 100%)',
-  '--text-main': isDarkMode ? '#e5eef7' : '#0f172a',
-  '--text-secondary': isDarkMode ? '#cbd5e1' : '#475569',
-  '--text-muted': isDarkMode ? '#94a3b8' : '#64748b',
-  '--text-label': isDarkMode ? '#dbe5f0' : '#334155',
-  '--card-bg': isDarkMode ? 'rgba(15,23,42,0.96)' : 'rgba(255,255,255,0.96)',
-  '--card-border': isDarkMode ? 'rgba(71,85,105,0.72)' : 'rgba(226,232,240,0.9)',
-  '--card-shadow': isDarkMode
-    ? '0 18px 50px rgba(0, 0, 0, 0.34)'
-    : '0 18px 50px rgba(15, 23, 42, 0.08)',
-  '--section-bg': isDarkMode ? '#111827' : '#f8fafc',
-  '--section-border': isDarkMode ? '#334155' : '#e2e8f0',
-  '--state-bg': isDarkMode ? '#111827' : '#f8fafc',
-  '--state-border': isDarkMode ? '#334155' : '#e2e8f0',
-  '--input-bg': isDarkMode ? '#0b1220' : '#ffffff',
-  '--input-border': isDarkMode ? '#475569' : '#cbd5e1',
-  '--input-text': isDarkMode ? '#f8fafc' : '#0f172a',
-  '--input-placeholder': isDarkMode ? '#94a3b8' : '#64748b',
-  '--hint-bg': isDarkMode ? '#082f49' : '#ecfeff',
-  '--hint-border': isDarkMode ? '#155e75' : '#a5f3fc',
-  '--hint-text': isDarkMode ? '#bae6fd' : '#155e75',
-  '--choice-bg': isDarkMode ? '#0b1220' : '#ffffff',
-  '--choice-border': isDarkMode ? '#475569' : '#cbd5e1',
-  '--selected-bg': isDarkMode ? '#042f2e' : '#f0fdfa',
-  '--selected-border': '#14b8a6',
-  '--selected-shadow': isDarkMode
-    ? '0 0 0 2px rgba(45,212,191,0.16)'
-    : '0 0 0 2px rgba(20,184,166,0.12)',
-  '--accent': '#0f766e',
-  '--danger-bg': isDarkMode ? '#3f1d1d' : '#fef2f2',
-  '--danger-border': isDarkMode ? '#7f1d1d' : '#fecaca',
-  '--danger-text': isDarkMode ? '#fca5a5' : '#b91c1c',
-  '--secondary-button-bg': isDarkMode ? '#111827' : '#ffffff',
-  '--secondary-button-border': isDarkMode ? '#475569' : '#cbd5e1',
-  '--primary-shadow': isDarkMode
-    ? '0 16px 34px rgba(20, 184, 166, 0.18)'
-    : '0 16px 34px rgba(15, 118, 110, 0.22)',
-}
+    '--page-bg': isDarkMode
+      ? 'linear-gradient(180deg, #020617 0%, #0f172a 24%, #111827 100%)'
+      : 'linear-gradient(180deg, #e8f4ff 0%, #f4f8fc 24%, #f6f8fb 100%)',
+    '--text-main': isDarkMode ? '#e5eef7' : '#0f172a',
+    '--text-secondary': isDarkMode ? '#cbd5e1' : '#475569',
+    '--text-muted': isDarkMode ? '#94a3b8' : '#64748b',
+    '--text-label': isDarkMode ? '#dbe5f0' : '#334155',
+    '--card-bg': isDarkMode ? 'rgba(15,23,42,0.96)' : 'rgba(255,255,255,0.96)',
+    '--card-border': isDarkMode ? 'rgba(71,85,105,0.72)' : 'rgba(226,232,240,0.9)',
+    '--card-shadow': isDarkMode ? '0 18px 50px rgba(0, 0, 0, 0.34)' : '0 18px 50px rgba(15, 23, 42, 0.08)',
+    '--section-bg': isDarkMode ? '#111827' : '#f8fafc',
+    '--section-border': isDarkMode ? '#334155' : '#e2e8f0',
+    '--state-bg': isDarkMode ? '#111827' : '#f8fafc',
+    '--state-border': isDarkMode ? '#334155' : '#e2e8f0',
+    '--input-bg': isDarkMode ? '#0b1220' : '#ffffff',
+    '--input-border': isDarkMode ? '#475569' : '#cbd5e1',
+    '--input-text': isDarkMode ? '#f8fafc' : '#0f172a',
+    '--input-placeholder': isDarkMode ? '#94a3b8' : '#64748b',
+    '--hint-bg': isDarkMode ? '#082f49' : '#ecfeff',
+    '--hint-border': isDarkMode ? '#155e75' : '#a5f3fc',
+    '--hint-text': isDarkMode ? '#bae6fd' : '#155e75',
+    '--choice-bg': isDarkMode ? '#0b1220' : '#ffffff',
+    '--choice-border': isDarkMode ? '#475569' : '#cbd5e1',
+    '--selected-bg': isDarkMode ? '#042f2e' : '#f0fdfa',
+    '--selected-border': '#14b8a6',
+    '--selected-shadow': isDarkMode ? '0 0 0 2px rgba(45,212,191,0.16)' : '0 0 0 2px rgba(20,184,166,0.12)',
+    '--accent': '#0f766e',
+    '--danger-bg': isDarkMode ? '#3f1d1d' : '#fef2f2',
+    '--danger-border': isDarkMode ? '#7f1d1d' : '#fecaca',
+    '--danger-text': isDarkMode ? '#fca5a5' : '#b91c1c',
+    '--secondary-button-bg': isDarkMode ? '#111827' : '#ffffff',
+    '--secondary-button-border': isDarkMode ? '#475569' : '#cbd5e1',
+    '--primary-shadow': isDarkMode ? '0 16px 34px rgba(20, 184, 166, 0.18)' : '0 16px 34px rgba(15, 118, 110, 0.22)',
+  }
 
   return (
     <main
@@ -336,9 +493,7 @@ export default function OrderPage() {
           <div style={headerBlockStyle}>
             <div style={eyebrowStyle}>CK EL GRECO TOUR</div>
             <h1 style={titleStyle}>Objednávka zájazdu</h1>
-            <p style={subtitleStyle}>
-              Vyplň formulár a potom sa otvorí e-mailová správa s pripraveným textom objednávky.
-            </p>
+            <p style={subtitleStyle}>Vyplň formulár a potom sa otvorí e-mailová správa s pripraveným textom objednávky.</p>
             <p style={requiredLegendStyle}>
               <span style={requiredMarkStyle}>*</span> Povinné pole
             </p>
@@ -346,9 +501,7 @@ export default function OrderPage() {
 
           {loading ? <div style={stateBoxStyle}>Načítavam termíny...</div> : null}
           {!loading && error ? <div style={{ ...stateBoxStyle, color: 'var(--danger-text)' }}>{error}</div> : null}
-          {!loading && !error && departures.length === 0 ? (
-            <div style={stateBoxStyle}>Momentálne nie sú dostupné žiadne termíny.</div>
-          ) : null}
+          {!loading && !error && departures.length === 0 ? <div style={stateBoxStyle}>Momentálne nie sú dostupné žiadne termíny.</div> : null}
 
           {!loading && !error && departures.length > 0 ? (
             <form style={formStyle} onSubmit={handleSubmit}>
@@ -359,12 +512,7 @@ export default function OrderPage() {
                   <span style={fieldLabelStyle}>
                     Zájazd číslo <span style={requiredMarkStyle}>*</span>
                   </span>
-                  <select
-                    style={inputStyle}
-                    value={form.departureId}
-                    onChange={(event) => updateField('departureId', event.target.value)}
-                    required
-                  >
+                  <select style={inputStyle} value={form.departureId} onChange={(event) => updateField('departureId', event.target.value)} required>
                     {departures.map((item) => (
                       <option key={item.id} value={item.id}>
                         {item.trip_code} | {formatTripDateRange(item)}
@@ -381,36 +529,69 @@ export default function OrderPage() {
               </section>
 
               <section style={sectionStyle}>
+                <div style={sectionTitleStyle}>Ubytovanie</div>
+
+                <div style={apartmentGridStyle}>
+                  <ApartmentSelectorCard
+                    label="Dvojlôžkový apartmán"
+                    selectedCount={form.doubleApartments}
+                    freeCount={freeDouble}
+                    bedsPerApartment={2}
+                    onToggle={() => toggleApartment('doubleApartments', freeDouble)}
+                    onMinus={() => adjustApartment('doubleApartments', -1, freeDouble)}
+                    onPlus={() => adjustApartment('doubleApartments', 1, freeDouble)}
+                  />
+
+                  <ApartmentSelectorCard
+                    label="Trojlôžkový apartmán"
+                    selectedCount={form.tripleApartments}
+                    freeCount={freeTriple}
+                    bedsPerApartment={3}
+                    onToggle={() => toggleApartment('tripleApartments', freeTriple)}
+                    onMinus={() => adjustApartment('tripleApartments', -1, freeTriple)}
+                    onPlus={() => adjustApartment('tripleApartments', 1, freeTriple)}
+                  />
+
+                  <ApartmentSelectorCard
+                    label="Štvorlôžkový apartmán"
+                    selectedCount={form.quadApartments}
+                    freeCount={freeQuad}
+                    bedsPerApartment={4}
+                    onToggle={() => toggleApartment('quadApartments', freeQuad)}
+                    onMinus={() => adjustApartment('quadApartments', -1, freeQuad)}
+                    onPlus={() => adjustApartment('quadApartments', 1, freeQuad)}
+                  />
+                </div>
+
+                <div style={smallHintStyle}>Checkbox zapne typ a nastaví počet na 1. Odfajknutie vráti počet na 0.</div>
+                <div style={smallHintStyle}>Spolu zvolené lôžka: {selectedBeds} | Členovia zájazdu: {totalPeople}</div>
+              </section>
+
+              <section style={sectionStyle}>
                 <div style={sectionTitleStyle}>Objednávateľ</div>
 
                 <label style={fieldWrapStyle}>
                   <span style={fieldLabelStyle}>
                     Titul, meno a priezvisko <span style={requiredMarkStyle}>*</span>
                   </span>
-                  <input
-                    style={inputStyle}
-                    value={form.customerName}
-                    onChange={(event) => updateField('customerName', event.target.value)}
-                    placeholder="Napr. Mgr. Ján Novák"
-                    required
-                  />
+                  <input style={inputStyle} value={form.customerName} onChange={(event) => updateField('customerName', event.target.value)} placeholder="Napr. Mgr. Ján Novák" required />
                 </label>
 
                 <label style={fieldWrapStyle}>
-									<span style={fieldLabelStyle}>
-										Dátum narodenia <span style={requiredMarkStyle}>*</span>
-									</span>
-									<input
-										type="text"
-										inputMode="numeric"
-										style={inputStyle}
-										value={form.birthDate}
-										onChange={(event) => updateField('birthDate', formatBirthDateInput(event.target.value))}
-										placeholder="DD.MM.RRRR"
-										maxLength={10}
-										required
-									/>
-								</label>
+                  <span style={fieldLabelStyle}>
+                    Dátum narodenia <span style={requiredMarkStyle}>*</span>
+                  </span>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    style={inputStyle}
+                    value={form.birthDate}
+                    onChange={(event) => updateField('birthDate', formatBirthDateInput(event.target.value))}
+                    placeholder="DD.MM.RRRR"
+                    maxLength={10}
+                    required
+                  />
+                </label>
 
                 <label style={fieldWrapStyle}>
                   <span style={fieldLabelStyle}>
@@ -427,35 +608,28 @@ export default function OrderPage() {
                 </label>
 
                 <label style={fieldWrapStyle}>
-								<span style={fieldLabelStyle}>
-									Mobil <span style={requiredMarkStyle}>*</span>
-								</span>
-								<input
-									style={inputStyle}
-									inputMode="tel"
-									value={form.mobile}
-									onChange={(event) => updateField('mobile', event.target.value)}
-									placeholder="+421..."
-									required
-								/>
-							</label>
+                  <span style={fieldLabelStyle}>
+                    Mobil <span style={requiredMarkStyle}>*</span>
+                  </span>
+                  <input style={inputStyle} inputMode="tel" value={form.mobile} onChange={(event) => updateField('mobile', event.target.value)} placeholder="+421..." required />
+                </label>
 
-							<label style={fieldWrapStyle}>
-								<span style={fieldLabelStyle}>
-									Email <span style={requiredMarkStyle}>*</span>
-								</span>
-								<input
-									type="email"
-									inputMode="email"
-									autoCapitalize="none"
-									autoCorrect="off"
-									style={inputStyle}
-									value={form.email}
-									onChange={(event) => updateField('email', event.target.value)}
-									placeholder="napr. meno@email.sk"
-									required
-								/>
-							</label>
+                <label style={fieldWrapStyle}>
+                  <span style={fieldLabelStyle}>
+                    Email <span style={requiredMarkStyle}>*</span>
+                  </span>
+                  <input
+                    type="email"
+                    inputMode="email"
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    style={inputStyle}
+                    value={form.email}
+                    onChange={(event) => updateField('email', event.target.value)}
+                    placeholder="napr. meno@email.sk"
+                    required
+                  />
+                </label>
               </section>
 
               <section style={sectionStyle}>
@@ -523,8 +697,8 @@ export default function OrderPage() {
                 <div style={sectionTitleStyle}>Členovia zájazdu</div>
 
                 <div style={counterGridStyle}>
-                  <CounterCard label="Dospelí" value={form.adults} onMinus={() => adjustAdults(-1)} onPlus={() => adjustAdults(1)} />
-                  <CounterCard label="Deti" value={form.children} onMinus={() => adjustChildren(-1)} onPlus={() => adjustChildren(1)} />
+                  <CounterCard label="Dospelí" value={form.adults} onMinus={() => adjustAdults(-1)} onPlus={() => adjustAdults(1)} disableMinus={form.adults <= 0} />
+                  <CounterCard label="Deti" value={form.children} onMinus={() => adjustChildren(-1)} onPlus={() => adjustChildren(1)} disableMinus={form.children <= 0} />
                 </div>
               </section>
 
@@ -537,18 +711,18 @@ export default function OrderPage() {
                     value={form.childrenAge0to6}
                     onMinus={() => adjustChildrenAge0to6(-1)}
                     onPlus={() => adjustChildrenAge0to6(1)}
+                    disableMinus={form.childrenAge0to6 <= 0}
                   />
                   <CounterCard
                     label="Nad 6 do 15 rokov"
                     value={form.childrenAge7to15}
                     onMinus={() => adjustChildrenAge7to15(-1)}
                     onPlus={() => adjustChildrenAge7to15(1)}
+                    disableMinus={form.childrenAge7to15 <= 0}
                   />
                 </div>
 
-                <div style={smallHintStyle}>
-                  Počet detí sa automaticky dorovná podľa vekových skupín.
-                </div>
+                <div style={smallHintStyle}>Počet detí sa automaticky dorovná podľa vekových skupín.</div>
               </section>
 
               <section style={sectionStyle}>
@@ -826,6 +1000,58 @@ const stopLabelStyle: CSSProperties = {
   color: 'var(--text-main)',
 }
 
+const apartmentGridStyle: CSSProperties = {
+  display: 'grid',
+  gap: 12,
+}
+
+const apartmentCardStyle: CSSProperties = {
+  display: 'grid',
+  gap: 10,
+  padding: 14,
+  borderRadius: 16,
+  background: 'var(--choice-bg)',
+  border: '1px solid var(--choice-border)',
+}
+
+const selectedApartmentCardStyle: CSSProperties = {
+  border: '1px solid var(--selected-border)',
+  background: 'var(--selected-bg)',
+  boxShadow: 'var(--selected-shadow)',
+}
+
+const disabledApartmentCardStyle: CSSProperties = {
+  opacity: 0.56,
+}
+
+const apartmentToggleStyle: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 10,
+  minHeight: 44,
+  padding: 0,
+  border: 'none',
+  background: 'transparent',
+  fontSize: 16,
+  fontWeight: 800,
+  color: 'var(--text-main)',
+  cursor: 'pointer',
+  textAlign: 'left',
+}
+
+const disabledToggleButtonStyle: CSSProperties = {
+  cursor: 'not-allowed',
+}
+
+const apartmentMetaStyle: CSSProperties = {
+  display: 'flex',
+  justifyContent: 'space-between',
+  gap: 10,
+  fontSize: 13,
+  fontWeight: 700,
+  color: 'var(--text-secondary)',
+}
+
 const counterGridStyle: CSSProperties = {
   display: 'grid',
   gap: 12,
@@ -864,6 +1090,11 @@ const counterButtonStyle: CSSProperties = {
   lineHeight: 1,
   fontWeight: 900,
   cursor: 'pointer',
+}
+
+const disabledCounterButtonStyle: CSSProperties = {
+  background: '#94a3b8',
+  cursor: 'not-allowed',
 }
 
 const counterValueStyle: CSSProperties = {

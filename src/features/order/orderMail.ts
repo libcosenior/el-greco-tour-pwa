@@ -34,6 +34,10 @@ function formatBirthDate(value: string): string {
   return `${day}.${month}.${year}`
 }
 
+function getTotalBeds(form: OrderFormValues): number {
+  return form.doubleApartments * 2 + form.tripleApartments * 3 + form.quadApartments * 4
+}
+
 export function formatTripDateRange(departure: OrderDeparture): string {
   return `${formatDate(departure.start_date)} – ${formatDate(departure.end_date)}`
 }
@@ -47,6 +51,12 @@ export function buildOrderEmailBody(departure: OrderDeparture, form: OrderFormVa
     `Zájazd číslo: ${departure.trip_code}`,
     `Termín: ${formatTripDateRange(departure)}`,
     `Počet dní / nocí: ${departure.days_count} dní / ${departure.nights_count} nocí`,
+    '',
+    'UBYTOVANIE',
+    `Dvojlôžkový apartmán: ${form.doubleApartments}`,
+    `Trojlôžkový apartmán: ${form.tripleApartments}`,
+    `Štvorlôžkový apartmán: ${form.quadApartments}`,
+    `Spolu lôžok: ${getTotalBeds(form)}`,
     '',
     'OBJEDNÁVATEĽ',
     `Titul, meno a priezvisko: ${form.customerName}`,
