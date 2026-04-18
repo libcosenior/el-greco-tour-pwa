@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { sendAvailabilityReleasedNotification } from '../lib/pushNotifications'
 import { supabase } from '../lib/supabase'
 import type { AccommodationSettings } from '../types/accommodationSettings'
 import type { Departure } from '../types/departure'
@@ -27,6 +28,12 @@ function freeCount(total: number, occupied: number): number {
 
 function savingKey(departureId: string, occupiedKey: OccupiedKey): string {
   return `${departureId}:${occupiedKey}`
+}
+
+function notificationTypeFromOccupiedKey(occupiedKey: OccupiedKey): 'double' | 'triple' | 'quad' {
+  if (occupiedKey === 'double_occupied') return 'double'
+  if (occupiedKey === 'triple_occupied') return 'triple'
+  return 'quad'
 }
 
 function ApartmentStepper({
@@ -257,8 +264,29 @@ export default function AdminDashboardPage() {
       )
       setErrorText('Zmena sa neuložila. Skús ešte raz.')
     } else {
-      setSuccessText('Zmena uložená.')
-      window.setTimeout(() => setSuccessText(''), 1400)
+      let successMessage = 'Zmena uložená.'
+
+      if (delta < 0 && nextValue < currentValue) {
+        try {
+          const { sentCount } = await sendAvailabilityReleasedNotification({
+            departureId: item.id,
+            tripCode: item.trip_code,
+            startDate: item.start_date,
+            endDate: item.end_date,
+            apartmentType: notificationTypeFromOccupiedKey(occupiedKey),
+            freeCount: freeCount(totalValue, nextValue),
+          })
+
+          if (sentCount > 0) {
+            successMessage = 'Zmena uložená. Upozornenie bolo odoslané.'
+          }
+        } catch (pushError) {
+          console.error('Sending push notification failed:', pushError)
+        }
+      }
+
+      setSuccessText(successMessage)
+      window.setTimeout(() => setSuccessText(''), 1800)
     }
 
     setSavingMap((prev) => ({ ...prev, [key]: false }))

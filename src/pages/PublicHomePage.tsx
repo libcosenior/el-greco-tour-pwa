@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { getPushSubscriptionStatus, subscribeAvailabilityNotifications } from '../lib/pushNotifications'
 import { supabase } from '../lib/supabase'
 import type { AccommodationSettings } from '../types/accommodationSettings'
 import type { Departure } from '../types/departure'
@@ -113,6 +114,8 @@ export default function PublicHomePage() {
   const [installPromptEvent, setInstallPromptEvent] = useState<BeforeInstallPromptEvent | null>(null)
   const [isInstalled, setIsInstalled] = useState(() => isStandaloneMode())
   const [showIosInstallHelp, setShowIosInstallHelp] = useState(false)
+  const [notificationStatus, setNotificationStatus] = useState<'checking' | 'unsupported' | 'idle' | 'working' | 'enabled'>('checking')
+  const [notificationText, setNotificationText] = useState('')
 
   const adminTapCountRef = useRef(0)
   const adminTapTimerRef = useRef<number | null>(null)
@@ -199,6 +202,40 @@ export default function PublicHomePage() {
     window.location.href = url.toString()
   }
 
+  function notificationButtonLabel(): string {
+    if (notificationStatus === 'working') return 'Zapínam upozornenia...'
+    if (notificationStatus === 'enabled') return 'Upozornenia sú zapnuté'
+    return 'Zapnúť upozornenia na uvoľnené miesta'
+  }
+
+  async function handleNotificationsTap() {
+    if (isAppleMobileDevice() && !isInstalled) {
+      setNotificationText('Na iPhone alebo iPade najskôr nainštaluj appku na plochu.')
+      setShowIosInstallHelp(true)
+      return
+    }
+
+    setNotificationText('')
+    setNotificationStatus('working')
+
+    const result = await subscribeAvailabilityNotifications()
+
+    if (result.status === 'enabled') {
+      setNotificationStatus('enabled')
+      setNotificationText('Hotovo. Keď sa uvoľní apartmán, appka ťa upozorní.')
+      return
+    }
+
+    if (result.status === 'unsupported') {
+      setNotificationStatus('unsupported')
+      setNotificationText(result.message)
+      return
+    }
+
+    setNotificationStatus('idle')
+    setNotificationText(result.message)
+  }
+
   async function handleInstallTap() {
     if (installPromptEvent) {
       const promptEvent = installPromptEvent
@@ -282,6 +319,37 @@ export default function PublicHomePage() {
 
     mediaQuery.addListener(handleChange)
     return () => mediaQuery.removeListener(handleChange)
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadPushStatus() {
+      try {
+        const status = await getPushSubscriptionStatus()
+        if (cancelled) return
+
+        if (status === 'unsupported') {
+          setNotificationStatus('unsupported')
+        } else if (status === 'subscribed') {
+          setNotificationStatus('enabled')
+          setNotificationText('Upozornenia na uvoľnené miesta sú zapnuté.')
+        } else {
+          setNotificationStatus('idle')
+        }
+      } catch (error) {
+        console.error('Loading push status failed:', error)
+        if (!cancelled) {
+          setNotificationStatus('idle')
+        }
+      }
+    }
+
+    loadPushStatus()
+
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   useEffect(() => {
@@ -538,13 +606,23 @@ export default function PublicHomePage() {
                 <div style={heroInfoTextStyle}>Ceny sú uvedené za apartmán</div>
               </div>
             </div>
-						
-						<div style={heroActionsWrapStyle}>
-							<button type="button" style={heroSecondaryButtonStyle} onClick={() => navigate('/cennik-2026')}>
-								Pozrieť informácie o zájazde
-							</button>
-						</div>
 
+            <div style={heroActionsWrapStyle}>
+              <button
+                type="button"
+                style={notificationStatus === 'enabled' ? heroPrimaryButtonStyle : heroSecondaryButtonStyle}
+                onClick={handleNotificationsTap}
+                disabled={notificationStatus === 'working' || notificationStatus === 'enabled'}
+              >
+                {notificationButtonLabel()}
+              </button>
+
+              <button type="button" style={heroSecondaryButtonStyle} onClick={() => navigate('/cennik-2026')}>
+                Pozrieť informácie o zájazde
+              </button>
+            </div>
+
+            {notificationText ? <div style={heroNotificationTextStyle}>{notificationText}</div> : null}
           </section>
         </header>
 
@@ -762,7 +840,22 @@ const heroInfoTextStyle: CSSProperties = {
 const heroActionsWrapStyle: CSSProperties = {
   display: 'flex',
   justifyContent: 'center',
+  gap: 12,
+  flexWrap: 'wrap',
   marginTop: 4,
+}
+
+const heroPrimaryButtonStyle: CSSProperties = {
+  minHeight: 50,
+  borderRadius: 16,
+  padding: '0 18px',
+  border: '1px solid #14b8a6',
+  background: 'linear-gradient(135deg, #0f766e 0%, #14b8a6 100%)',
+  color: '#ffffff',
+  fontSize: 15,
+  fontWeight: 900,
+  cursor: 'pointer',
+  boxShadow: 'var(--button-shadow)',
 }
 
 const heroSecondaryButtonStyle: CSSProperties = {
@@ -776,6 +869,14 @@ const heroSecondaryButtonStyle: CSSProperties = {
   fontWeight: 900,
   cursor: 'pointer',
   boxShadow: '0 10px 24px rgba(15, 118, 110, 0.10)',
+}
+
+const heroNotificationTextStyle: CSSProperties = {
+  marginTop: 14,
+  textAlign: 'center',
+  fontSize: 14,
+  fontWeight: 700,
+  color: 'var(--text-secondary)',
 }
 
 const stateCardStyle: CSSProperties = {
