@@ -30,7 +30,7 @@ function isPushSupported(): boolean {
   return typeof window !== 'undefined' && 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window
 }
 
-function base64UrlToUint8Array(base64Url: string): Uint8Array {
+function base64UrlToArrayBuffer(base64Url: string): ArrayBuffer {
   const padding = '='.repeat((4 - (base64Url.length % 4)) % 4)
   const base64 = (base64Url + padding).replace(/-/g, '+').replace(/_/g, '/')
   const rawData = window.atob(base64)
@@ -40,7 +40,7 @@ function base64UrlToUint8Array(base64Url: string): Uint8Array {
     outputArray[index] = rawData.charCodeAt(index)
   }
 
-  return outputArray
+  return outputArray.buffer.slice(0) as ArrayBuffer
 }
 
 async function getServiceWorkerRegistration(): Promise<ServiceWorkerRegistration> {
@@ -120,7 +120,7 @@ export async function subscribeAvailabilityNotifications(): Promise<SubscribeAva
     if (!subscription) {
       subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: base64UrlToUint8Array(vapidPublicKey),
+        applicationServerKey: base64UrlToArrayBuffer(vapidPublicKey),
       })
     }
 
