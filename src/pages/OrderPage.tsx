@@ -723,7 +723,7 @@ export default function OrderPage() {
                   <span style={fieldLabelStyle}>
                     Mobil <span style={requiredMarkStyle}>*</span>
                   </span>
-                  <input style={inputStyle} inputMode="tel" value={form.mobile} onChange={(event) => updateField('mobile', event.target.value)} placeholder="+421..." required />
+                  <input style={inputStyle} inputMode="tel" value={form.mobile} onChange={(event) => updateField('mobile', event.target.value)} placeholder="napr. 0903 903 903" required />
                 </label>
 
                 <label style={fieldWrapStyle}>
