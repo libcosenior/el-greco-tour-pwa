@@ -128,9 +128,7 @@ export default function AdminLoginPage() {
           Prihlásenie do správy obsadenosti EL GRECO TOUR.
         </p>
 
-        <div style={hintStyle}>
-          Admin prístup majú len 2 povolené e-mailové adresy.
-        </div>
+        
 
         <form onSubmit={handleSubmit} style={formBoxStyle}>
           <label style={labelStyle}>
