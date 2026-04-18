@@ -1,7 +1,9 @@
 export type TransportType = '' | 'own' | 'bus'
+export type ChainLength = 1 | 2 | 3
 
 export type OrderFormValues = {
   departureId: string
+  chainLength: ChainLength
   customerName: string
   birthDate: string
   permanentResidence: string
@@ -22,6 +24,7 @@ export type OrderFormValues = {
 export function createInitialOrderForm(): OrderFormValues {
   return {
     departureId: '',
+    chainLength: 1,
     customerName: '',
     birthDate: '',
     permanentResidence: '',
@@ -36,6 +39,6 @@ export function createInitialOrderForm(): OrderFormValues {
     doubleApartments: 0,
     tripleApartments: 0,
     quadApartments: 0,
-    note: '',
+    note: 'Prosím o cenovú ponuku.',
   }
 }

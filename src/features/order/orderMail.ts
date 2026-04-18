@@ -9,6 +9,8 @@ export type OrderDeparture = {
   nights_count: number
 }
 
+const NOTE_PREFIX = 'Prosím o cenovú ponuku.'
+
 function formatDate(dateIso: string): string {
   const onlyDate = dateIso.split('T')[0]
   const parts = onlyDate.split('-')
@@ -38,19 +40,84 @@ function getTotalBeds(form: OrderFormValues): number {
   return form.doubleApartments * 2 + form.tripleApartments * 3 + form.quadApartments * 4
 }
 
+function getTripCodesLabel(departures: OrderDeparture[]): string {
+  return departures.map((item) => item.trip_code).join(' + ')
+}
+
+function getCombinedTripDateRange(departures: OrderDeparture[]): string {
+  if (departures.length === 0) return '-'
+
+  const first = departures[0]
+  const last = departures[departures.length - 1]
+
+  return `${formatDate(first.start_date)} – ${formatDate(last.end_date)}`
+}
+
+function getCombinedDaysAndNights(departures: OrderDeparture[]) {
+  return departures.reduce(
+    (acc, item) => ({
+      days: acc.days + item.days_count,
+      nights: acc.nights + item.nights_count,
+    }),
+    { days: 0, nights: 0 },
+  )
+}
+
+function buildFinalNote(note: string): string {
+  const trimmed = note.trim()
+
+  if (!trimmed) {
+    return NOTE_PREFIX
+  }
+
+  if (trimmed.startsWith(NOTE_PREFIX)) {
+    return trimmed
+  }
+
+  return `${NOTE_PREFIX}\n\n${trimmed}`
+}
+
 export function formatTripDateRange(departure: OrderDeparture): string {
   return `${formatDate(departure.start_date)} – ${formatDate(departure.end_date)}`
 }
 
-export function buildOrderEmailBody(departure: OrderDeparture, form: OrderFormValues): string {
+export function buildOrderEmailBody(departures: OrderDeparture[], form: OrderFormValues): string {
   const selectedStop = BOARDING_STOPS.find((item) => item.id === form.boardingStopId)
+  const combined = getCombinedDaysAndNights(departures)
+  const tripCodesLabel = getTripCodesLabel(departures)
 
   const lines: string[] = [
     'OBJEDNÁVKA ZÁJAZDU',
     '',
-    `Zájazd číslo: ${departure.trip_code}`,
-    `Termín: ${formatTripDateRange(departure)}`,
-    `Počet dní / nocí: ${departure.days_count} dní / ${departure.nights_count} nocí`,
+    `Zájazd číslo: ${tripCodesLabel || '-'}`,
+  ]
+
+  if (departures.length <= 1) {
+    const departure = departures[0]
+
+    if (departure) {
+      lines.push(
+        `Termín: ${formatTripDateRange(departure)}`,
+        `Počet dní / nocí: ${departure.days_count} dní / ${departure.nights_count} nocí`,
+      )
+    } else {
+      lines.push(
+        'Termín: -',
+        'Počet dní / nocí: -',
+      )
+    }
+  } else {
+    lines.push(
+      '',
+      'ZVOLENÉ TERMÍNY',
+      ...departures.map((item) => `- ${item.trip_code} | ${formatTripDateRange(item)} | ${item.days_count} dní / ${item.nights_count} nocí`),
+      '',
+      `Spolu pobyt: ${getCombinedTripDateRange(departures)}`,
+      `Počet dní / nocí spolu: ${combined.days} dní / ${combined.nights} nocí`,
+    )
+  }
+
+  lines.push(
     '',
     'UBYTOVANIE',
     `Dvojlôžkový apartmán: ${form.doubleApartments}`,
@@ -67,7 +134,7 @@ export function buildOrderEmailBody(departure: OrderDeparture, form: OrderFormVa
     '',
     'DOPRAVA',
     form.transport === 'bus' ? 'Autobusom' : 'Vlastná',
-  ]
+  )
 
   if (form.transport === 'bus') {
     lines.push(
@@ -88,15 +155,16 @@ export function buildOrderEmailBody(departure: OrderDeparture, form: OrderFormVa
     `Nad 6 do 15 rokov: ${form.childrenAge7to15}`,
     '',
     'POZNÁMKA',
-    form.note.trim() ? form.note.trim() : '-',
+    buildFinalNote(form.note),
   )
 
   return lines.join('\n')
 }
 
-export function buildOrderMailtoUrl(toEmail: string, departure: OrderDeparture, form: OrderFormValues): string {
-  const subject = `Objednávka zájazdu ${departure.trip_code}`
-  const body = buildOrderEmailBody(departure, form)
+export function buildOrderMailtoUrl(toEmail: string, departures: OrderDeparture[], form: OrderFormValues): string {
+  const subjectTripCodes = getTripCodesLabel(departures)
+  const subject = subjectTripCodes ? `Objednávka zájazdu ${subjectTripCodes}` : 'Objednávka zájazdu'
+  const body = buildOrderEmailBody(departures, form)
 
   return `mailto:${toEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
 }

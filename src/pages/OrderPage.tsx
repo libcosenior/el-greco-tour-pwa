@@ -4,11 +4,12 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { BOARDING_STOPS } from '../features/order/orderConstants'
 import { buildOrderMailtoUrl, formatTripDateRange } from '../features/order/orderMail'
-import { createInitialOrderForm, type OrderFormValues, type TransportType } from '../features/order/orderTypes'
+import { createInitialOrderForm, type ChainLength, type OrderFormValues, type TransportType } from '../features/order/orderTypes'
 
 type ThemeStyleVars = CSSProperties & Record<`--${string}`, string>
 
 const CK_ORDER_EMAIL = import.meta.env.VITE_CK_ORDER_EMAIL ?? ''
+const CHAIN_OPTIONS: ChainLength[] = [1, 2, 3]
 
 type DepartureOption = {
   id: string
@@ -133,8 +134,39 @@ function formatBirthDateInput(value: string): string {
   return `${digits.slice(0, 2)}.${digits.slice(2, 4)}.${digits.slice(4)}`
 }
 
-function getFreeApartmentCounts(departure: DepartureOption | null) {
-  if (!departure) {
+function formatDate(dateIso: string): string {
+  const onlyDate = dateIso.split('T')[0]
+  const parts = onlyDate.split('-')
+
+  if (parts.length !== 3) return dateIso
+
+  const [year, month, day] = parts
+  return `${day}.${month}.${year}`
+}
+
+function formatCombinedTripDateRange(departures: DepartureOption[]) {
+  if (departures.length === 0) {
+    return ''
+  }
+
+  const first = departures[0]
+  const last = departures[departures.length - 1]
+
+  return `${formatDate(first.start_date)} – ${formatDate(last.end_date)}`
+}
+
+function getCombinedDaysAndNights(departures: DepartureOption[]) {
+  return departures.reduce(
+    (acc, item) => ({
+      days: acc.days + item.days_count,
+      nights: acc.nights + item.nights_count,
+    }),
+    { days: 0, nights: 0 },
+  )
+}
+
+function getFreeApartmentCounts(departures: DepartureOption[]) {
+  if (departures.length === 0) {
     return {
       freeDouble: 0,
       freeTriple: 0,
@@ -142,11 +174,28 @@ function getFreeApartmentCounts(departure: DepartureOption | null) {
     }
   }
 
-  return {
-    freeDouble: Math.max(0, departure.double_total - departure.double_occupied),
-    freeTriple: Math.max(0, departure.triple_total - departure.triple_occupied),
-    freeQuad: Math.max(0, departure.quad_total - departure.quad_occupied),
-  }
+  return departures.reduce(
+    (acc, departure) => ({
+      freeDouble: Math.min(acc.freeDouble, Math.max(0, departure.double_total - departure.double_occupied)),
+      freeTriple: Math.min(acc.freeTriple, Math.max(0, departure.triple_total - departure.triple_occupied)),
+      freeQuad: Math.min(acc.freeQuad, Math.max(0, departure.quad_total - departure.quad_occupied)),
+    }),
+    {
+      freeDouble: Number.POSITIVE_INFINITY,
+      freeTriple: Number.POSITIVE_INFINITY,
+      freeQuad: Number.POSITIVE_INFINITY,
+    },
+  )
+}
+
+function getMaxChainLength(selectedIndex: number, totalDepartures: number): ChainLength {
+  if (selectedIndex < 0) return 1
+
+  const remaining = totalDepartures - selectedIndex
+
+  if (remaining >= 3) return 3
+  if (remaining === 2) return 2
+  return 1
 }
 
 function getSelectedApartmentsCount(form: OrderFormValues): number {
@@ -289,13 +338,17 @@ export default function OrderPage() {
     })
   }
 
-  function validateForm(selectedDeparture: DepartureOption | null): string | null {
+  function validateForm(selectedDepartures: DepartureOption[]): string | null {
     if (!CK_ORDER_EMAIL || CK_ORDER_EMAIL === 'SEM_DAJ_EMAIL_CK') {
       return 'Najprv doplň VITE_CK_ORDER_EMAIL do .env súboru.'
     }
 
-    if (!selectedDeparture) {
+    if (selectedDepartures.length === 0) {
       return 'Vyber zájazd.'
+    }
+
+    if (selectedDepartures.length !== form.chainLength) {
+      return 'Pre vybraný zájazd nie je dostupný zvolený počet po sebe idúcich termínov.'
     }
 
     if (!form.customerName.trim()) {
@@ -336,7 +389,7 @@ export default function OrderPage() {
       return 'Zadaj aspoň jedného člena zájazdu.'
     }
 
-    const { freeDouble, freeTriple, freeQuad } = getFreeApartmentCounts(selectedDeparture)
+    const { freeDouble, freeTriple, freeQuad } = getFreeApartmentCounts(selectedDepartures)
     const selectedApartments = getSelectedApartmentsCount(form)
     const selectedBeds = getSelectedBedsCount(form)
 
@@ -367,15 +420,14 @@ export default function OrderPage() {
     event.preventDefault()
     setSubmitError(null)
 
-    const selectedDeparture = departures.find((item) => item.id === form.departureId) ?? null
-    const validationError = validateForm(selectedDeparture)
+    const validationError = validateForm(selectedDepartures)
 
     if (validationError) {
       setSubmitError(validationError)
       return
     }
 
-    const mailtoUrl = buildOrderMailtoUrl(CK_ORDER_EMAIL, selectedDeparture!, form)
+    const mailtoUrl = buildOrderMailtoUrl(CK_ORDER_EMAIL, selectedDepartures, form)
     window.location.href = mailtoUrl
   }
 
@@ -413,13 +465,35 @@ export default function OrderPage() {
     return () => mediaQuery.removeListener(handleChange)
   }, [])
 
-  const selectedDeparture = useMemo(() => {
-    return departures.find((item) => item.id === form.departureId) ?? null
+  const selectedDepartureIndex = useMemo(() => {
+    return departures.findIndex((item) => item.id === form.departureId)
   }, [departures, form.departureId])
 
-  const { freeDouble, freeTriple, freeQuad } = useMemo(() => getFreeApartmentCounts(selectedDeparture), [selectedDeparture])
+  const selectedDeparture = useMemo(() => {
+    if (selectedDepartureIndex < 0) return null
+    return departures[selectedDepartureIndex] ?? null
+  }, [departures, selectedDepartureIndex])
+
+  const maxChainLength = useMemo(() => getMaxChainLength(selectedDepartureIndex, departures.length), [selectedDepartureIndex, departures.length])
+
+  const selectedDepartures = useMemo(() => {
+    if (selectedDepartureIndex < 0) return []
+    return departures.slice(selectedDepartureIndex, selectedDepartureIndex + form.chainLength)
+  }, [departures, selectedDepartureIndex, form.chainLength])
+
+  const { freeDouble, freeTriple, freeQuad } = useMemo(() => getFreeApartmentCounts(selectedDepartures), [selectedDepartures])
   const selectedBeds = useMemo(() => getSelectedBedsCount(form), [form])
   const totalPeople = useMemo(() => form.adults + form.children, [form.adults, form.children])
+  const combinedTrip = useMemo(() => getCombinedDaysAndNights(selectedDepartures), [selectedDepartures])
+
+  useEffect(() => {
+    if (form.chainLength > maxChainLength) {
+      setForm((prev) => ({
+        ...prev,
+        chainLength: maxChainLength,
+      }))
+    }
+  }, [form.chainLength, maxChainLength])
 
   useEffect(() => {
     setForm((prev) => {
@@ -521,9 +595,46 @@ export default function OrderPage() {
                   </select>
                 </label>
 
+                <div style={fieldWrapStyle}>
+                  <span style={fieldLabelStyle}>
+                    Počet po sebe idúcich termínov <span style={requiredMarkStyle}>*</span>
+                  </span>
+
+                  <div style={choiceGridStyle}>
+                    {CHAIN_OPTIONS.map((value) => {
+                      const disabled = value > maxChainLength
+                      const label = value === 1 ? '1 termín' : `${value} termíny za sebou`
+
+                      return (
+                        <button
+                          key={value}
+                          type="button"
+                          style={{
+                            ...choiceButtonStyle,
+                            ...(form.chainLength === value ? selectedChoiceButtonStyle : undefined),
+                            ...(disabled ? disabledChoiceButtonStyle : undefined),
+                          }}
+                          onClick={() => updateField('chainLength', value)}
+                          disabled={disabled}
+                        >
+                          <span style={choiceCheckboxStyle}>{form.chainLength === value ? '☒' : '☐'}</span>
+                          <span>{label}</span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+
                 {selectedDeparture ? (
                   <div style={hintBoxStyle}>
-                    Termín: {formatTripDateRange(selectedDeparture)} | {selectedDeparture.days_count} dní / {selectedDeparture.nights_count} nocí
+                    <div>
+                      Zvolené zájazdy: {selectedDepartures.map((item) => item.trip_code).join(' + ')}
+                    </div>
+                    <div>
+                      {selectedDepartures.length === 1
+                        ? `Termín: ${formatTripDateRange(selectedDeparture)} | ${selectedDeparture.days_count} dní / ${selectedDeparture.nights_count} nocí`
+                        : `Spolu pobyt: ${formatCombinedTripDateRange(selectedDepartures)} | ${combinedTrip.days} dní / ${combinedTrip.nights} nocí`}
+                    </div>
                   </div>
                 ) : null}
               </section>
@@ -564,6 +675,7 @@ export default function OrderPage() {
                 </div>
 
                 <div style={smallHintStyle}>Checkbox zapne typ a nastaví počet na 1. Odfajknutie vráti počet na 0.</div>
+                <div style={smallHintStyle}>Voľná kapacita sa pri spojených termínoch počíta podľa všetkých zvolených termínov naraz.</div>
                 <div style={smallHintStyle}>Spolu zvolené lôžka: {selectedBeds} | Členovia zájazdu: {totalPeople}</div>
               </section>
 
@@ -738,6 +850,8 @@ export default function OrderPage() {
                     placeholder="Sem môžeš doplniť ďalšie požiadavky..."
                   />
                 </label>
+
+                <div style={smallHintStyle}>Prvá veta „Prosím o cenovú ponuku.“ sa odošle automaticky aj v e-maile.</div>
               </section>
 
               {submitError ? <div style={errorBoxStyle}>{submitError}</div> : null}
@@ -905,6 +1019,8 @@ const textareaStyle: CSSProperties = {
 }
 
 const hintBoxStyle: CSSProperties = {
+  display: 'grid',
+  gap: 6,
   padding: 12,
   borderRadius: 14,
   background: 'var(--hint-bg)',
@@ -939,6 +1055,11 @@ const selectedChoiceButtonStyle: CSSProperties = {
   border: '1px solid var(--selected-border)',
   background: 'var(--selected-bg)',
   boxShadow: 'var(--selected-shadow)',
+}
+
+const disabledChoiceButtonStyle: CSSProperties = {
+  opacity: 0.56,
+  cursor: 'not-allowed',
 }
 
 const choiceCheckboxStyle: CSSProperties = {
