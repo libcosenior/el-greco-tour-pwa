@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { getPushSubscriptionStatus, subscribeAvailabilityNotifications } from '../lib/pushNotifications'
+import { getPushSubscriptionStatus, subscribeAvailabilityNotifications, syncExistingPushSubscription } from '../lib/pushNotifications'
 import { supabase } from '../lib/supabase'
 import type { AccommodationSettings } from '../types/accommodationSettings'
 import type { Departure } from '../types/departure'
@@ -321,7 +321,7 @@ export default function PublicHomePage() {
     return () => mediaQuery.removeListener(handleChange)
   }, [])
 
-  useEffect(() => {
+    useEffect(() => {
     let cancelled = false
 
     async function loadPushStatus() {
@@ -332,6 +332,14 @@ export default function PublicHomePage() {
         if (status === 'unsupported') {
           setNotificationStatus('unsupported')
         } else if (status === 'subscribed') {
+          try {
+            await syncExistingPushSubscription()
+          } catch (syncError) {
+            console.error('Syncing existing push subscription failed:', syncError)
+          }
+
+          if (cancelled) return
+
           setNotificationStatus('enabled')
           setNotificationText('Upozornenia na uvoľnené miesta sú zapnuté.')
         } else {

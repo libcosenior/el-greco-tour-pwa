@@ -82,6 +82,18 @@ export async function getPushSubscriptionStatus(): Promise<PushSubscriptionStatu
   return subscription ? 'subscribed' : 'not-subscribed'
 }
 
+export async function syncExistingPushSubscription(): Promise<boolean> {
+  if (!isPushSupported()) return false
+
+  const registration = await getServiceWorkerRegistration()
+  const subscription = await registration.pushManager.getSubscription()
+
+  if (!subscription) return false
+
+  await persistSubscription(subscription)
+  return true
+}
+
 export async function subscribeAvailabilityNotifications(): Promise<SubscribeAvailabilityResult> {
   if (!isPushSupported()) {
     return {
